@@ -1,46 +1,62 @@
 # Divergences from the Rust reference implementation
 
-This library is a TypeScript port of
-[`BlockchainCommons/bc-rand-rust`](https://github.com/BlockchainCommons/bc-rand-rust),
-tracked at version **0.5.0**
-([`8f53717`](https://github.com/BlockchainCommons/bc-rand-rust/commit/8f53717e35300933e9ca1bc6c51bddc0854cfb9e)).
+`@blockchaincommons/rand` is a port of
+[bc-rand-rust](https://github.com/BlockchainCommons/bc-rand-rust) (crate
+`bc-rand`), tracked at **0.5.0** (`8f53717e`). The committed golden vectors
+(`tests/vectors/vectors.json`) are cross-validated against that crate by the
+harness in `tests/rust-validation/`:
 
-The tracked version and commit are recorded in
-[`.github/versions.yml`](./.github/versions.yml), and the `upstream.yml`
-workflow opens a tracking issue whenever the reference implementation moves
-ahead of it.
+```sh
+cd tests/rust-validation
+cargo run --release -- ../vectors/vectors.json
+```
 
-This document is the deliberate record of every place the TypeScript behaviour
-differs from the Rust reference. It has three kinds of entry:
+Validation result (2026-09-09, pre-redesign freeze):
 
-1. **True behavioral divergences** - the same input produces a different outcome.
-2. **JS-only input domain** - inputs that have no Rust analog, so there is nothing to diverge from.
-3. **Mapping equivalences** - JS-specific inputs that are validated through the bytes they produce.
+```
+303 vectors - 282 match, 21 expected-divergence, 0 MISMATCH
+```
+
+Every seeded `nextU64`/`nextU32` sequence, every byte fill, every unsigned
+sampler at every head-width cliff, every signed sampler with a non-negative
+start, and every full-range early return (including the overflow throw)
+matches the Rust reference exactly.
 
 ## 1. True behavioral divergences
 
-_None recorded yet for the extraction release. The port was byte-compatible with
-the Rust reference at the tracked version when it was extracted from the
-`paritytech/bcts` monorepo._
+### 1.1 `i64` range samplers with a negative start (tombstone T1)
 
-> Any divergence found after extraction must be added here in the same commit
-> that introduces or discovers it, with the input, the Rust outcome, the
-> TypeScript outcome, and the reason the difference is intentional.
+| input | @blockchaincommons/rand (frozen) | bc-rand (Rust) |
+|---|---|---|
+| `rngNextInRangeI64(rng, -1n, 0n)` / `rngNextInClosedRangeI64(rng, -1n, 0n)` | out-of-range values (e.g. `1`, `2`) | in range |
+
+**Why:** the port computes `fromMagnitude64((toMagnitude64(start) + random) & mask)`,
+applying wrapping-abs to the *start*. Rust computes
+`lower_bound + T::from_magnitude(random)`: a plain signed addition with the
+random magnitude bit-reinterpreted as `i64`. The `i8`/`i16`/`i32` variants in
+the port do the signed addition correctly; only the two `i64` functions are
+wrong.
+
+**Status:** frozen bug. Fixed in Phase 3 of the redesign as the single
+enumerated tombstone `T1` in `tests/differential.test.ts`; the 21 affected
+vectors are regenerated at that point and this section moves to the changelog.
+
+**Affected vectors:** every `range/i64/-…` recipe (21 of 303).
 
 ## 2. JS-only input domain
 
-_To be documented as the surface is audited._
+None. Every input the package accepts has a Rust equivalent.
 
 ## 3. Mapping equivalences
 
-_To be documented as the surface is audited._
+| JS-specific input | maps to |
+|---|---|
+| seed as `[bigint, bigint, bigint, bigint]` | `[u64; 4]`, same word order |
+| `number` arguments for the 8/16/32-bit samplers | the corresponding Rust integer width; the port masks to width exactly as Rust's `as` casts do |
 
 ## Maintenance
 
-When the upstream reference moves:
-
-1. Review the diff via the link in the `upstream.yml` tracking issue.
-2. Port the relevant changes.
-3. Update `.github/versions.yml` with the new version and commit.
-4. Update the tracked version at the top of this file.
-5. Add, amend, or remove divergence entries as the port requires.
+- A new vector that diverges is either a bug (fix it) or belongs in a class
+  above: document it here and add it to `expected_divergence()` in
+  `tests/rust-validation/src/main.rs` in the same change.
+- Re-run the harness after every `bun run vectors:generate`.
