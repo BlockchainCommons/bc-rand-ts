@@ -9,6 +9,7 @@ declare function secureRandomBytes(size: number): Uint8Array<ArrayBuffer>;
  * every modern browser and in Node >= 15.
  */
 declare class SecureRng implements RandomNumberGenerator {
+  /** Debug label: `Object.prototype.toString` reports the class name. */
   get [Symbol.toStringTag](): string;
   /** The low 32 bits of a 64-bit draw. */
   nextU32(): number;
@@ -35,6 +36,7 @@ declare const TEST_SEED: Seed;
  */
 declare class SeededRng implements RandomNumberGenerator {
   private readonly core;
+  /** Debug label: `Object.prototype.toString` reports the class name. */
   get [Symbol.toStringTag](): string;
   /**
    * @param seed - four 64-bit words, or 32 little-endian bytes (the byte

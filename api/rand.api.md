@@ -33,7 +33,6 @@ export function secureRandomBytes(size: number): Uint8Array<ArrayBuffer>;
 
 // @public
 export class SecureRng implements RandomNumberGenerator {
-    // (undocumented)
     get [Symbol.toStringTag](): string;
     // (undocumented)
     fillBytes(dest: Uint8Array): void;
@@ -50,7 +49,6 @@ export type Seed = readonly [bigint, bigint, bigint, bigint];
 
 // @public
 export class SeededRng implements RandomNumberGenerator {
-    // (undocumented)
     get [Symbol.toStringTag](): string;
     constructor(seed: Seed | Uint8Array);
     fillBytes(dest: Uint8Array): void;
