@@ -28,13 +28,23 @@ enum Op {
 #[derive(Deserialize, PartialEq, Debug)]
 struct Outcome { out: Vec<String>, state: Vec<String> }
 
-const THROW: &str = "throw:from_u64 conversion overflow";
+const THROW: &str = "throw:random value does not fit the target width";
 
 /// Expected divergences: documented in RUST_DIVERGENCES.md. Keep in sync.
-fn expected_divergence(name: &str) -> Option<&'static str> {
-    // T1: TS i64 range samplers with a negative start apply wrapping-abs to
-    // the start; Rust does signed addition. Frozen TS bug until Phase 3.
-    if name.starts_with("range/i64/-") { return Some("T1"); }
+fn expected_divergence(v: &Vector) -> Option<&'static str> {
+    // D1: a signed range whose length exceeds i64::MAX overflows
+    // `upper_bound - lower_bound` in the reference (wraps in release, panics
+    // in debug). TypeScript uses exact arithmetic and samples the range
+    // correctly. Both outcomes are recorded; the TS one is the contract.
+    for op in &v.ops {
+        if let Op::Range { w, s, e, .. } = op {
+            if w == "i64" {
+                let s: i128 = s.parse().unwrap();
+                let e: i128 = e.parse().unwrap();
+                if e - s > i64::MAX as i128 { return Some("D1"); }
+            }
+        }
+    }
     None
 }
 
@@ -96,7 +106,7 @@ fn main() {
     for v in &file.vectors {
         let got = run(v);
         if got == v.expect { ok += 1; continue; }
-        if let Some(id) = expected_divergence(&v.name) { expected += 1; eprintln!("expected-divergence [{id}] {}", v.name); continue; }
+        if let Some(id) = expected_divergence(v) { expected += 1; eprintln!("expected-divergence [{id}] {}", v.name); continue; }
         mismatch += 1;
         eprintln!("MISMATCH {}\n  rust: {:?}\n  ts:   {:?}", v.name, got, v.expect);
     }

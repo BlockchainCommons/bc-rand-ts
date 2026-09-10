@@ -1,12 +1,8 @@
 /**
- * Copyright © 2023-2026 Blockchain Commons, LLC
- * Copyright © 2025-2026 Parity Technologies
+ * Wide (double-width) unsigned multiplication helpers.
  *
+ * @module widening
  */
-
-// The below is so we don't have to use #![feature(bigint_helper_methods)]
-// Ported from bc-rand-rust/src/widening.rs
-
 /**
  * Wide multiplication result type - returns (low, high) parts.
  * For a multiplication of two N-bit values, the result is 2N bits
@@ -18,7 +14,6 @@ export type WideMulResult = [bigint, bigint];
  * Performs wide multiplication for unsigned integers.
  * Returns (low, high) parts of the full-width result.
  *
- * This is equivalent to Rust's widening_mul for unsigned types.
  */
 export function wideMul(a: bigint, b: bigint, bits: number): WideMulResult {
   const mask = (1n << BigInt(bits)) - 1n;

@@ -2,6 +2,22 @@
 
 ## 1.0.0-beta.1
 
+Redesigned as an idiomatic TypeScript library; see [MIGRATION.md](./MIGRATION.md).
+
+- `SeededRng` / `SecureRng` replace the `*RandomNumberGenerator` classes; the
+  interface is three members (`nextU32`, `nextU64`, `fillBytes`).
+- Helpers take `{ rng }` and default to the secure generator:
+  `randomBytes`, `fillRandomBytes`, `randomBool`, `testRandomBytes`.
+- Samplers moved to `@blockchaincommons/rand/samplers` without the `rng`
+  prefix; deprecated un-suffixed aliases removed; invalid bounds throw
+  `RangeError`.
+- **Fixed:** `nextInRangeI64` / `nextInClosedRangeI64` with a negative start
+  returned out-of-range values (wrapping-abs applied to the start); they now
+  match `bc-rand` exactly.
+- xoshiro256** runs on 32-bit lanes: 4.6× to 10.8× faster, byte-identical.
+- 303 golden vectors, a differential corpus against the frozen pre-redesign
+  bundle, and a Rust cross-validation harness (`tests/rust-validation`).
+
 Extracted from the [`paritytech/bcts`](https://github.com/paritytech/bcts) monorepo, where this library was published as `@bcts/rand`. The public API is unchanged; see [MIGRATION.md](./MIGRATION.md).
 
 ---

@@ -89,7 +89,7 @@ export function materialize(api: VectorApi, r: Recipe): Outcome {
 // Adapters
 // ---------------------------------------------------------------------------
 
-/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-assignment */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 /** The pre-redesign surface (the frozen baseline bundle). */
 export function baselineAdapterFor(m: any): VectorApi {
@@ -130,6 +130,6 @@ export function redesignedAdapterFor(m: any, samplers: any = m): VectorApi {
       const wide = w === "u64" || w === "i64";
       return BigInt(f(rng, wide ? s : Number(s), wide ? e : Number(e)));
     },
-    bool: (rng) => m.randomBool(rng),
+    bool: (rng) => m.randomBool({ rng }),
   };
 }

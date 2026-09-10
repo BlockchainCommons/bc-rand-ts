@@ -1,25 +1,21 @@
-// Tests ported from bc-rand-rust
-
 import {
-  SeededRandomNumberGenerator,
-  SecureRandomNumberGenerator,
-  makeFakeRandomNumberGenerator,
-  fakeRandomData,
-  randomData,
-  threadRng,
-  rngRandomArray,
-  rngRandomBool,
-  rngRandomU32,
-  rngFillRandomData,
-  rngNextWithUpperBound,
-  rngNextWithUpperBoundU8,
-  rngNextWithUpperBoundU16,
-  rngNextWithUpperBoundU32,
-  rngNextWithUpperBoundU64,
-  rngNextInRange,
-  rngNextInRangeI32,
-  rngNextInClosedRange,
-  rngNextInClosedRangeI32,
+  SeededRng,
+  SecureRng,
+  secureRng,
+  secureRandomBytes,
+  randomBytes,
+  randomBool,
+  testRandomBytes,
+} from "../src/index";
+import {
+  nextWithUpperBoundU8,
+  nextWithUpperBoundU16,
+  nextWithUpperBoundU32,
+  nextWithUpperBoundU64,
+  nextInRangeU64,
+  nextInRangeI32,
+  nextInClosedRangeU64,
+  nextInClosedRangeI32,
   wideMulU8,
   wideMulU16,
   wideMulU32,
@@ -28,7 +24,7 @@ import {
   toMagnitude64,
   fromMagnitude,
   fromMagnitude64,
-} from "../src/index";
+} from "../src/samplers";
 
 // Standard test seed used across Blockchain Commons implementations.
 // Mirrors the private TEST_SEED in `bc-rand-rust/src/seeded_random.rs`.
@@ -45,14 +41,14 @@ function bytesToHex(bytes: Uint8Array): string {
     .join("");
 }
 
-describe("SeededRandomNumberGenerator", () => {
+describe("SeededRng", () => {
   test("test_next_u64", () => {
-    const rng = new SeededRandomNumberGenerator(TEST_SEED);
+    const rng = new SeededRng(TEST_SEED);
     expect(rng.nextU64()).toBe(1104683000648959614n);
   });
 
   test("test_next_50", () => {
-    const rng = new SeededRandomNumberGenerator(TEST_SEED);
+    const rng = new SeededRng(TEST_SEED);
     const expectedValues: bigint[] = [
       1104683000648959614n,
       9817345228149227957n,
@@ -112,22 +108,22 @@ describe("SeededRandomNumberGenerator", () => {
   });
 
   test("test_fake_random_data", () => {
-    const data = fakeRandomData(100);
+    const data = testRandomBytes(100);
     const expected =
       "7eb559bbbf6cce2632cf9f194aeb50943de7e1cbad54dcfab27a42759f5e2fed518684c556472008a67932f7c682125b50cb72e8216f6906358fdaf28d3545532daee0c5bb5023f50cd8e71ec14901ac746c576c481b893be6656b80622b3a564e59b4e2";
     expect(bytesToHex(data)).toBe(expected);
   });
 
   test("test_next_with_upper_bound", () => {
-    const rng = new SeededRandomNumberGenerator(TEST_SEED);
-    expect(rngNextWithUpperBoundU32(rng, 10000)).toBe(745);
+    const rng = new SeededRng(TEST_SEED);
+    expect(nextWithUpperBoundU32(rng, 10000)).toBe(745);
   });
 
   test("test_in_range", () => {
-    const rng = new SeededRandomNumberGenerator(TEST_SEED);
+    const rng = new SeededRng(TEST_SEED);
     const v: number[] = [];
     for (let i = 0; i < 100; i++) {
-      v.push(rngNextInRangeI32(rng, 0, 100));
+      v.push(nextInRangeI32(rng, 0, 100));
     }
     const expected: number[] = [
       7, 44, 92, 16, 16, 67, 41, 74, 66, 20, 18, 6, 62, 34, 4, 69, 99, 19, 0, 85, 22, 27, 56, 23,
@@ -140,21 +136,21 @@ describe("SeededRandomNumberGenerator", () => {
   });
 
   test("test_fill_random_data", () => {
-    let rng = new SeededRandomNumberGenerator(TEST_SEED);
-    const v1 = rng.randomData(100);
+    let rng = new SeededRng(TEST_SEED);
+    const v1 = randomBytes(100, { rng: rng });
 
-    rng = new SeededRandomNumberGenerator(TEST_SEED);
+    rng = new SeededRng(TEST_SEED);
     const v2 = new Uint8Array(100);
-    rng.fillRandomData(v2);
+    rng.fillBytes(v2);
 
     expect(v1).toEqual(v2);
   });
 
   test("test_fake_numbers (from random_number_generator.rs)", () => {
-    const rng = makeFakeRandomNumberGenerator();
+    const rng = SeededRng.forTesting();
     const array: number[] = [];
     for (let i = 0; i < 100; i++) {
-      array.push(rngNextInClosedRangeI32(rng, -50, 50));
+      array.push(nextInClosedRangeI32(rng, -50, 50));
     }
     const expected = [
       -43, -6, 43, -34, -34, 17, -9, 24, 17, -29, -32, -44, 12, -15, -46, 20, 50, -31, -50, 36, -28,
@@ -167,11 +163,11 @@ describe("SeededRandomNumberGenerator", () => {
   });
 });
 
-describe("SecureRandomNumberGenerator", () => {
+describe("SecureRng", () => {
   test("test_random_data", () => {
-    const data1 = randomData(32);
-    const data2 = randomData(32);
-    const data3 = randomData(32);
+    const data1 = secureRandomBytes(32);
+    const data2 = secureRandomBytes(32);
+    const data3 = secureRandomBytes(32);
 
     expect(data1.length).toBe(32);
     expect(data1).not.toEqual(data2);
@@ -179,10 +175,10 @@ describe("SecureRandomNumberGenerator", () => {
   });
 
   test("test_secure_rng_instance", () => {
-    const rng = new SecureRandomNumberGenerator();
+    const rng = new SecureRng();
 
-    const data1 = rng.randomData(32);
-    const data2 = rng.randomData(32);
+    const data1 = randomBytes(32, { rng: rng });
+    const data2 = randomBytes(32, { rng: rng });
 
     expect(data1.length).toBe(32);
     expect(data2.length).toBe(32);
@@ -190,7 +186,7 @@ describe("SecureRandomNumberGenerator", () => {
   });
 
   test("test_next_u32", () => {
-    const rng = new SecureRandomNumberGenerator();
+    const rng = new SecureRng();
     const v1 = rng.nextU32();
     const v2 = rng.nextU32();
 
@@ -202,7 +198,7 @@ describe("SecureRandomNumberGenerator", () => {
   });
 
   test("test_next_u64", () => {
-    const rng = new SecureRandomNumberGenerator();
+    const rng = new SecureRng();
     const v1 = rng.nextU64();
     const v2 = rng.nextU64();
 
@@ -213,59 +209,59 @@ describe("SecureRandomNumberGenerator", () => {
     expect(v2).toBeLessThanOrEqual(0xffffffffffffffffn);
   });
 
-  test("threadRng returns a working SecureRandomNumberGenerator", () => {
-    const rng = threadRng();
-    expect(rng).toBeInstanceOf(SecureRandomNumberGenerator);
-    expect(rng.randomData(16).length).toBe(16);
+  test("threadRng returns a working SecureRng", () => {
+    const rng = secureRng();
+    expect(rng).toBeInstanceOf(SecureRng);
+    expect(randomBytes(16, { rng: rng }).length).toBe(16);
   });
 });
 
 describe("rng utility functions", () => {
-  test("rngNextInClosedRange", () => {
-    const rng = makeFakeRandomNumberGenerator();
-    const value = rngNextInClosedRange(rng, 0n, 100n);
+  test("nextInClosedRange", () => {
+    const rng = SeededRng.forTesting();
+    const value = nextInClosedRangeU64(rng, 0n, 100n);
     expect(value).toBeGreaterThanOrEqual(0n);
     expect(value).toBeLessThanOrEqual(100n);
   });
 
-  test("rngNextInRange", () => {
-    const rng = makeFakeRandomNumberGenerator();
-    const value = rngNextInRange(rng, 0n, 100n);
+  test("nextInRange", () => {
+    const rng = SeededRng.forTesting();
+    const value = nextInRangeU64(rng, 0n, 100n);
     expect(value).toBeGreaterThanOrEqual(0n);
     expect(value).toBeLessThan(100n);
   });
 
-  test("rngNextWithUpperBound throws on zero", () => {
-    const rng = makeFakeRandomNumberGenerator();
-    expect(() => rngNextWithUpperBound(rng, 0n)).toThrow("upperBound must be non-zero");
+  test("nextWithUpperBound throws on zero", () => {
+    const rng = SeededRng.forTesting();
+    expect(() => nextWithUpperBoundU64(rng, 0n)).toThrow("upperBound must be non-zero");
   });
 
-  test("rngNextWithUpperBoundU8/U16/U32/U64 throw on zero", () => {
-    const rng = makeFakeRandomNumberGenerator();
-    expect(() => rngNextWithUpperBoundU8(rng, 0)).toThrow("upperBound must be non-zero");
-    expect(() => rngNextWithUpperBoundU16(rng, 0)).toThrow("upperBound must be non-zero");
-    expect(() => rngNextWithUpperBoundU32(rng, 0)).toThrow("upperBound must be non-zero");
-    expect(() => rngNextWithUpperBoundU64(rng, 0n)).toThrow("upperBound must be non-zero");
+  test("nextWithUpperBoundU8/U16/U32/U64 throw on zero", () => {
+    const rng = SeededRng.forTesting();
+    expect(() => nextWithUpperBoundU8(rng, 0)).toThrow("upperBound must be non-zero");
+    expect(() => nextWithUpperBoundU16(rng, 0)).toThrow("upperBound must be non-zero");
+    expect(() => nextWithUpperBoundU32(rng, 0)).toThrow("upperBound must be non-zero");
+    expect(() => nextWithUpperBoundU64(rng, 0n)).toThrow("upperBound must be non-zero");
   });
 
-  test("rngNextInRange throws on invalid range", () => {
-    const rng = makeFakeRandomNumberGenerator();
-    expect(() => rngNextInRange(rng, 100n, 0n)).toThrow("start must be less than end");
+  test("nextInRange throws on invalid range", () => {
+    const rng = SeededRng.forTesting();
+    expect(() => nextInRangeU64(rng, 100n, 0n)).toThrow("start must be less than end");
   });
 
-  test("rngNextInClosedRange throws on invalid range", () => {
-    const rng = makeFakeRandomNumberGenerator();
-    expect(() => rngNextInClosedRange(rng, 100n, 0n)).toThrow(
+  test("nextInClosedRange throws on invalid range", () => {
+    const rng = SeededRng.forTesting();
+    expect(() => nextInClosedRangeU64(rng, 100n, 0n)).toThrow(
       "start must be less than or equal to end",
     );
   });
 
   test("rngRandomBool produces both values across a deterministic seed", () => {
-    const rng = makeFakeRandomNumberGenerator();
+    const rng = SeededRng.forTesting();
     let trues = 0;
     let falses = 0;
     for (let i = 0; i < 200; i++) {
-      if (rngRandomBool(rng)) trues++;
+      if (randomBool({ rng: rng })) trues++;
       else falses++;
     }
     expect(trues).toBeGreaterThan(0);
@@ -274,9 +270,9 @@ describe("rng utility functions", () => {
   });
 
   test("rngRandomU32 returns a valid u32", () => {
-    const rng = makeFakeRandomNumberGenerator();
+    const rng = SeededRng.forTesting();
     for (let i = 0; i < 50; i++) {
-      const v = rngRandomU32(rng);
+      const v = rng.nextU32();
       expect(v).toBeGreaterThanOrEqual(0);
       expect(v).toBeLessThanOrEqual(0xffffffff);
       expect(Number.isInteger(v)).toBe(true);
@@ -284,16 +280,16 @@ describe("rng utility functions", () => {
   });
 
   test("rngRandomArray reproduces fakeRandomData for the same seed", () => {
-    const rng1 = makeFakeRandomNumberGenerator();
-    const rng2 = makeFakeRandomNumberGenerator();
-    expect(rngRandomArray(rng1, 50)).toEqual(rng2.randomData(50));
+    const rng1 = SeededRng.forTesting();
+    const rng2 = SeededRng.forTesting();
+    expect(randomBytes(50, { rng: rng1 })).toEqual(randomBytes(50, { rng: rng2 }));
   });
 
   test("rngFillRandomData fills exactly the buffer", () => {
-    const rng = makeFakeRandomNumberGenerator();
+    const rng = SeededRng.forTesting();
     const buf = new Uint8Array(8);
-    rngFillRandomData(rng, buf);
-    // Same as the first 8 bytes of fakeRandomData(8): 7eb559bbbf6cce26
+    rng.fillBytes(buf);
+    // Same as the first 8 bytes of testRandomBytes(8): 7eb559bbbf6cce26
     expect(bytesToHex(buf)).toBe("7eb559bbbf6cce26");
   });
 });

@@ -1,17 +1,13 @@
 /**
- * Copyright © 2023-2026 Blockchain Commons, LLC
- * Copyright © 2025-2026 Parity Technologies
+ * Signed/unsigned magnitude reinterpretation helpers.
  *
+ * @module magnitude
  */
-
-// Ported from bc-rand-rust/src/magnitude.rs
-
 /**
  * Converts a signed integer to its unsigned magnitude.
  * For positive numbers, returns the number unchanged.
  * For negative numbers, returns the absolute value (wrapping for MIN values).
  *
- * This matches Rust's wrapping_abs() behavior.
  */
 export function toMagnitude(value: number, bits: 8 | 16 | 32): number {
   switch (bits) {

@@ -11,11 +11,14 @@ cd tests/rust-validation
 cargo run --release -- ../vectors/vectors.json
 ```
 
-Validation result (2026-09-09, pre-redesign freeze):
+Validation result (2026-09-09, post-redesign):
 
 ```
-303 vectors - 282 match, 21 expected-divergence, 0 MISMATCH
+303 vectors - 299 match, 4 expected-divergence, 0 MISMATCH
 ```
+
+At the pre-redesign freeze the same vectors reported 282 match / 21
+expected-divergence; the 21 were tombstone T1 below, fixed in the redesign.
 
 Every seeded `nextU64`/`nextU32` sequence, every byte fill, every unsigned
 sampler at every head-width cliff, every signed sampler with a non-negative
@@ -24,7 +27,23 @@ matches the Rust reference exactly.
 
 ## 1. True behavioral divergences
 
-### 1.1 `i64` range samplers with a negative start (tombstone T1)
+### 1.1 Signed 64-bit ranges longer than `i64::MAX` (D1)
+
+| input | @blockchaincommons/rand | bc-rand (Rust) |
+|---|---|---|
+| `nextInRangeI64(rng, -7n, 9223372036854775807n)` and any `i64` range with `end - start > i64::MAX` | samples the range uniformly (exact arithmetic) | `upper_bound - lower_bound` overflows `i64`: **wraps** in release builds (returning a value from a much smaller, wrong range), **panics** in debug builds |
+
+**Why:** the reference computes the range length in the signed type before
+taking its magnitude. A length above `i64::MAX` is unrepresentable there.
+TypeScript's `bigint` subtraction is exact, so the sampler sees the true
+length and the true full-range branch. The Rust behaviour is not a
+specification; it is arithmetic overflow, and the same inputs abort a debug
+build. The TypeScript result is the contract.
+
+**Affected vectors:** 4 of 303 (`range/i64/-…` recipes whose end minus start
+exceeds `i64::MAX`), allowlisted as `D1` in the harness.
+
+### 1.2 (resolved) `i64` range samplers with a negative start (tombstone T1)
 
 | input | @blockchaincommons/rand (frozen) | bc-rand (Rust) |
 |---|---|---|
@@ -37,9 +56,9 @@ random magnitude bit-reinterpreted as `i64`. The `i8`/`i16`/`i32` variants in
 the port do the signed addition correctly; only the two `i64` functions are
 wrong.
 
-**Status:** frozen bug. Fixed in Phase 3 of the redesign as the single
-enumerated tombstone `T1` in `tests/differential.test.ts`; the 21 affected
-vectors are regenerated at that point and this section moves to the changelog.
+**Status:** fixed. `nextInRangeI64` / `nextInClosedRangeI64` now perform
+`BigInt.asIntN(64, start + fromMagnitude64(random))`. The differential harness
+carries T1 as its one landed tombstone; the 21 vectors were regenerated.
 
 **Affected vectors:** every `range/i64/-…` recipe (21 of 303).
 

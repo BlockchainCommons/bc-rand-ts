@@ -27,18 +27,22 @@ bun add @blockchaincommons/rand
 ## Usage Instructions
 
 ```typescript
-import {
-  wideMul,
-  wideMulU8,
-  wideMulU16,
-  wideMulU32,
-  wideMulU64,
-  toMagnitude,
-  toMagnitude64,
-  fromMagnitude,
-  fromMagnitude64,
-  rngRandomData,
-} from "@blockchaincommons/rand";
+import { SeededRng, SecureRng, secureRng, randomBytes, randomBool } from "@blockchaincommons/rand";
+import { nextWithUpperBoundU32, nextInClosedRangeI16 } from "@blockchaincommons/rand/samplers";
+
+// Cryptographically secure (Web Crypto), the default for every helper.
+const key = randomBytes(32);            // Uint8Array<ArrayBuffer>
+const coin = randomBool();
+
+// Deterministic, identical to the Rust and Swift implementations for the same seed.
+const rng = SeededRng.forTesting();     // the shared cross-platform fixture seed
+randomBytes(16, { rng });               // reproducible bytes
+nextWithUpperBoundU32(rng, 1000);       // uniform in [0, 1000)
+nextInClosedRangeI16(rng, -10, 10);     // uniform in [-10, 10]
+
+// Any object with nextU32/nextU64/fillBytes is a RandomNumberGenerator.
+const secure: SecureRng = secureRng();
+secure.nextU64();
 ```
 
 Runnable examples live in the [`examples/`](https://github.com/BlockchainCommons/bc-rand-ts/tree/master/examples) directory.

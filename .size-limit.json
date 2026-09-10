@@ -3,5 +3,10 @@
     "name": "ESM entry (import *), minified + gzipped",
     "path": "dist/index.mjs",
     "limit": "2 kB"
+  },
+  {
+    "name": "samplers subpath, minified + gzipped",
+    "path": "dist/samplers.mjs",
+    "limit": "2 kB"
   }
 ]
