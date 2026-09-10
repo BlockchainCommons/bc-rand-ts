@@ -136,7 +136,8 @@ export function rngNextWithUpperBoundU64(rng: RandomNumberGenerator, upperBound:
  *
  * @deprecated Prefer the explicit-width name `rngNextWithUpperBoundU64`.
  */
-export const rngNextWithUpperBound = rngNextWithUpperBoundU64;
+export const rngNextWithUpperBound: (rng: RandomNumberGenerator, upperBound: bigint) => bigint =
+  rngNextWithUpperBoundU64;
 
 // =====================================================================
 // Range / closed-range samplers
@@ -207,7 +208,8 @@ export function rngNextInRangeU64(rng: RandomNumberGenerator, start: bigint, end
  *
  * @deprecated Prefer the explicit-width name `rngNextInRangeU64`.
  */
-export const rngNextInRange = rngNextInRangeU64;
+export const rngNextInRange: (rng: RandomNumberGenerator, start: bigint, end: bigint) => bigint =
+  rngNextInRangeU64;
 
 /** Random `i8` in the half-open range [start, end). */
 export function rngNextInRangeI8(rng: RandomNumberGenerator, start: number, end: number): number {
@@ -332,7 +334,11 @@ export function rngNextInClosedRangeU64(
  *
  * @deprecated Prefer the explicit-width name `rngNextInClosedRangeU64`.
  */
-export const rngNextInClosedRange = rngNextInClosedRangeU64;
+export const rngNextInClosedRange: (
+  rng: RandomNumberGenerator,
+  start: bigint,
+  end: bigint,
+) => bigint = rngNextInClosedRangeU64;
 
 /** Random `i8` in the closed range [start, end]. */
 export function rngNextInClosedRangeI8(
