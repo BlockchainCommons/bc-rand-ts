@@ -34,9 +34,12 @@ const TOMBSTONES: { id: string; landed: boolean; matches: (r: Recipe) => boolean
   },
 ];
 
+// The samplers subpath appears in Phase 3; a computed specifier keeps this
+// typechecking before it exists.
+const samplersPath = ["..", "src", "samplers"].join("/");
 let samplers: unknown = src;
 try {
-  samplers = await import("../src/samplers");
+  samplers = (await import(samplersPath)) as unknown;
 } catch {
   /* pre-redesign */
 }
