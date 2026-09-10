@@ -55,12 +55,27 @@ export function materialize(api: VectorApi, r: Recipe): Outcome {
   for (const op of r.ops) {
     try {
       switch (op.op) {
-        case "u64": out.push(rng.nextU64().toString()); break;
-        case "u32": out.push(String(rng.nextU32())); break;
-        case "bytes": { const b = new Uint8Array(op.n); rng.fillBytes(b); out.push(bytesToHex(b)); break; }
-        case "bound": out.push(api.bound(rng, op.w, BigInt(op.b)).toString()); break;
-        case "range": out.push(api.range(rng, op.w, BigInt(op.s), BigInt(op.e), op.closed).toString()); break;
-        case "bool": out.push(api.bool(rng) ? "1" : "0"); break;
+        case "u64":
+          out.push(rng.nextU64().toString());
+          break;
+        case "u32":
+          out.push(String(rng.nextU32()));
+          break;
+        case "bytes": {
+          const b = new Uint8Array(op.n);
+          rng.fillBytes(b);
+          out.push(bytesToHex(b));
+          break;
+        }
+        case "bound":
+          out.push(api.bound(rng, op.w, BigInt(op.b)).toString());
+          break;
+        case "range":
+          out.push(api.range(rng, op.w, BigInt(op.s), BigInt(op.e), op.closed).toString());
+          break;
+        case "bool":
+          out.push(api.bool(rng) ? "1" : "0");
+          break;
       }
     } catch (e) {
       out.push(`throw:${e instanceof Error ? e.message : String(e)}`);
@@ -82,7 +97,11 @@ export function baselineAdapterFor(m: any): VectorApi {
   return {
     makeRng: (seed) => {
       const g = new m.SeededRandomNumberGenerator(seed);
-      return { nextU64: () => g.nextU64(), nextU32: () => g.nextU32(), fillBytes: (d) => g.fillBytes(d) };
+      return {
+        nextU64: () => g.nextU64(),
+        nextU32: () => g.nextU32(),
+        fillBytes: (d) => g.fillBytes(d),
+      };
     },
     bound: (rng, w, b) => {
       const f = m[`rngNextWithUpperBound${cap(w)}`];
@@ -104,7 +123,8 @@ export function redesignedAdapterFor(m: any, samplers: any = m): VectorApi {
   const cap = (w: string): string => w.toUpperCase();
   return {
     makeRng: (seed) => new m.SeededRng(seed),
-    bound: (rng, w, b) => BigInt(samplers[`nextWithUpperBound${cap(w)}`](rng, w === "u64" ? b : Number(b))),
+    bound: (rng, w, b) =>
+      BigInt(samplers[`nextWithUpperBound${cap(w)}`](rng, w === "u64" ? b : Number(b))),
     range: (rng, w, s, e, closed) => {
       const f = samplers[`nextIn${closed ? "Closed" : ""}Range${cap(w)}`];
       const wide = w === "u64" || w === "i64";

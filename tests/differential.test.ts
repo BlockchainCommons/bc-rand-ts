@@ -9,7 +9,12 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import * as baselineMod from "./baseline/rand-baseline.mjs";
 import * as src from "../src";
-import { materialize, baselineAdapterFor, redesignedAdapterFor, type Recipe } from "./vectors/recipes";
+import {
+  materialize,
+  baselineAdapterFor,
+  redesignedAdapterFor,
+  type Recipe,
+} from "./vectors/recipes";
 import { categories } from "./corpus/corpus";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -30,13 +35,19 @@ const TOMBSTONES: { id: string; landed: boolean; matches: (r: Recipe) => boolean
 ];
 
 let samplers: unknown = src;
-try { samplers = await import("../src/samplers"); } catch { /* pre-redesign */ }
+try {
+  samplers = await import("../src/samplers");
+} catch {
+  /* pre-redesign */
+}
 const baseline = baselineAdapterFor(baselineMod);
 const current = redesignedAdapterFor(src, samplers);
 
 describe("differential: baseline vs working tree", () => {
   it("baseline bundle integrity", () => {
-    const sha = createHash("sha256").update(readFileSync(join(here, "baseline/rand-baseline.mjs"))).digest("hex");
+    const sha = createHash("sha256")
+      .update(readFileSync(join(here, "baseline/rand-baseline.mjs")))
+      .digest("hex");
     expect(sha).toBe(BASELINE_SHA256);
   });
 
@@ -52,7 +63,8 @@ describe("differential: baseline vs working tree", () => {
         const tomb = TOMBSTONES.find((t) => t.matches(recipe));
         if (tomb?.landed === true) {
           // A landed tombstone MUST differ for its recipes (otherwise the fix did not land).
-          if (equal) diffs.push(`${recipe.name}: expected tombstone ${tomb.id} difference, got equality`);
+          if (equal)
+            diffs.push(`${recipe.name}: expected tombstone ${tomb.id} difference, got equality`);
         } else if (!equal) {
           diffs.push(`${recipe.name}: ${JSON.stringify(a)} !== ${JSON.stringify(b)}`);
         }

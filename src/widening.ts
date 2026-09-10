@@ -57,10 +57,32 @@ export function wideMulU16(a: number, b: number): [number, number] {
  * @returns Tuple of (low 32 bits, high 32 bits) as bigints
  */
 export function wideMulU32(a: number, b: number): [bigint, bigint] {
-  const aBig = BigInt(a >>> 0);
-  const bBig = BigInt(b >>> 0);
-  const wide = aBig * bBig;
-  return [wide & 0xffffffffn, wide >> 32n];
+  const { lo, hi } = wideMulU32Parts(a, b);
+  return [BigInt(lo), BigInt(hi)];
+}
+
+/**
+ * 32×32→64 multiply without `bigint`: 16-bit limbs, all partial products
+ * exact in double precision. Returns unsigned 32-bit halves.
+ *
+ * @internal
+ */
+export function wideMulU32Parts(a: number, b: number): { lo: number; hi: number } {
+  a >>>= 0;
+  b >>>= 0;
+  const al = a & 0xffff,
+    ah = a >>> 16;
+  const bl = b & 0xffff,
+    bh = b >>> 16;
+  const ll = al * bl;
+  const mid = al * bh + ah * bl; // < 2^33, exact
+  const midLo = (mid % 65536) * 65536;
+  const midHi = Math.floor(mid / 65536);
+  let lo = ll + midLo; // < 2^33, exact
+  const carry = Math.floor(lo / 4294967296);
+  lo = lo % 4294967296;
+  const hi = ah * bh + midHi + carry;
+  return { lo, hi };
 }
 
 /**

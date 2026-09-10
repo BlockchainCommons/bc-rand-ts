@@ -16,7 +16,8 @@ import { goldenRecipes } from "../tests/corpus/corpus.ts";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 let samplers = src;
-try { samplers = await import("../src/samplers.ts"); } catch { /* pre-redesign */ }
+const samplersPath = "../src/samplers.ts";
+try { samplers = await import(samplersPath); } catch { /* pre-redesign */ }
 const api = redesignedAdapterFor(src, samplers);
 
 const vectors = [];

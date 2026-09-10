@@ -15,7 +15,11 @@ const { count, vectors } = JSON.parse(readFileSync(join(here, "vectors/vectors.j
 };
 
 let samplers: unknown = src;
-try { samplers = await import("../src/samplers"); } catch { /* pre-redesign */ }
+try {
+  samplers = await import("../src/samplers");
+} catch {
+  /* pre-redesign */
+}
 const api = redesignedAdapterFor(src, samplers);
 
 describe("golden vectors (frozen)", () => {

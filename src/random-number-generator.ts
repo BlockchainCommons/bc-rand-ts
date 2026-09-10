@@ -6,7 +6,7 @@
 
 // Ported from bc-rand-rust/src/random_number_generator.rs
 
-import { wideMulU8, wideMulU16, wideMulU32, wideMulU64 } from "./widening.js";
+import { wideMulU8, wideMulU16, wideMulU32Parts, wideMulU64 } from "./widening.js";
 import { toMagnitude, toMagnitude64, fromMagnitude64 } from "./magnitude.js";
 
 /**
@@ -99,16 +99,17 @@ export function rngNextWithUpperBoundU16(rng: RandomNumberGenerator, upperBound:
 export function rngNextWithUpperBoundU32(rng: RandomNumberGenerator, upperBound: number): number {
   if (upperBound === 0) throw new Error("upperBound must be non-zero");
   const ub = upperBound >>> 0;
-  let random = Number(rng.nextU64() & 0xffffffffn);
-  let m = wideMulU32(random, ub);
-  if (Number(m[0]) < ub) {
+  // The reference draws a full u64 and keeps its low 32 bits; nextU32 is that.
+  let random = rng.nextU32();
+  let m = wideMulU32Parts(random, ub);
+  if (m.lo < ub) {
     const t = ((0x100000000 - ub) >>> 0) % ub;
-    while (Number(m[0]) < t) {
-      random = Number(rng.nextU64() & 0xffffffffn);
-      m = wideMulU32(random, ub);
+    while (m.lo < t) {
+      random = rng.nextU32();
+      m = wideMulU32Parts(random, ub);
     }
   }
-  return Number(m[1]);
+  return m.hi;
 }
 
 /**

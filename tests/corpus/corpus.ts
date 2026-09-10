@@ -17,17 +17,46 @@ export const SEEDS: [string, string, string, string][] = [
 ];
 
 const U_MAX: Record<"u8" | "u16" | "u32" | "u64", bigint> = {
-  u8: 255n, u16: 65535n, u32: 4294967295n, u64: 18446744073709551615n,
+  u8: 255n,
+  u16: 65535n,
+  u32: 4294967295n,
+  u64: 18446744073709551615n,
 };
 const I_MIN: Record<"i8" | "i16" | "i32" | "i64", bigint> = {
-  i8: -128n, i16: -32768n, i32: -2147483648n, i64: -(1n << 63n),
+  i8: -128n,
+  i16: -32768n,
+  i32: -2147483648n,
+  i64: -(1n << 63n),
 };
 const I_MAX: Record<"i8" | "i16" | "i32" | "i64", bigint> = {
-  i8: 127n, i16: 32767n, i32: 2147483647n, i64: (1n << 63n) - 1n,
+  i8: 127n,
+  i16: 32767n,
+  i32: 2147483647n,
+  i64: (1n << 63n) - 1n,
 };
-const CLIFFS = [1n, 2n, 7n, 23n, 24n, 127n, 128n, 255n, 256n, 257n, 65535n, 65536n, 65537n,
-  4294967295n, 4294967296n, 4294967297n, 9007199254740991n, 9007199254740992n,
-  9223372036854775807n, 9223372036854775808n, 18446744073709551615n];
+const CLIFFS = [
+  1n,
+  2n,
+  7n,
+  23n,
+  24n,
+  127n,
+  128n,
+  255n,
+  256n,
+  257n,
+  65535n,
+  65536n,
+  65537n,
+  4294967295n,
+  4294967296n,
+  4294967297n,
+  9007199254740991n,
+  9007199254740992n,
+  9223372036854775807n,
+  9223372036854775808n,
+  18446744073709551615n,
+];
 
 function* boundRecipes(): Generator<Recipe> {
   for (const w of ["u8", "u16", "u32", "u64"] as const) {
@@ -55,8 +84,18 @@ function* rangeRecipes(): Generator<Recipe> {
         if (e > max || len < 1n) continue;
         for (const closed of [false, true]) {
           for (let si = 0; si < 4; si++) {
-            const ops: Op[] = Array.from({ length: 10 }, () => ({ op: "range", w, s: s.toString(), e: e.toString(), closed }));
-            yield { name: `range/${w}/${s}..${closed ? "=" : ""}${e}/seed${si}`, seed: SEEDS[si], ops };
+            const ops: Op[] = Array.from({ length: 10 }, () => ({
+              op: "range",
+              w,
+              s: s.toString(),
+              e: e.toString(),
+              closed,
+            }));
+            yield {
+              name: `range/${w}/${s}..${closed ? "=" : ""}${e}/seed${si}`,
+              seed: SEEDS[si],
+              ops,
+            };
           }
         }
       }
@@ -66,11 +105,46 @@ function* rangeRecipes(): Generator<Recipe> {
 
 function* rawRecipes(): Generator<Recipe> {
   for (let si = 0; si < SEEDS.length; si++) {
-    yield { name: `raw/u64x32/seed${si}`, seed: SEEDS[si], ops: Array.from({ length: 32 }, () => ({ op: "u64" })) };
-    yield { name: `raw/u32x32/seed${si}`, seed: SEEDS[si], ops: Array.from({ length: 32 }, () => ({ op: "u32" })) };
-    yield { name: `raw/bytes/seed${si}`, seed: SEEDS[si], ops: [{ op: "bytes", n: 0 }, { op: "bytes", n: 1 }, { op: "bytes", n: 31 }, { op: "bytes", n: 32 }, { op: "bytes", n: 33 }, { op: "bytes", n: 200 }] };
-    yield { name: `raw/bool/seed${si}`, seed: SEEDS[si], ops: Array.from({ length: 32 }, () => ({ op: "bool" })) };
-    yield { name: `raw/mixed/seed${si}`, seed: SEEDS[si], ops: [{ op: "u32" }, { op: "bytes", n: 3 }, { op: "bool" }, { op: "bound", w: "u16", b: "1000" }, { op: "u64" }, { op: "range", w: "i32", s: "-10", e: "10", closed: true }, { op: "bytes", n: 5 }] };
+    yield {
+      name: `raw/u64x32/seed${si}`,
+      seed: SEEDS[si],
+      ops: Array.from({ length: 32 }, () => ({ op: "u64" })),
+    };
+    yield {
+      name: `raw/u32x32/seed${si}`,
+      seed: SEEDS[si],
+      ops: Array.from({ length: 32 }, () => ({ op: "u32" })),
+    };
+    yield {
+      name: `raw/bytes/seed${si}`,
+      seed: SEEDS[si],
+      ops: [
+        { op: "bytes", n: 0 },
+        { op: "bytes", n: 1 },
+        { op: "bytes", n: 31 },
+        { op: "bytes", n: 32 },
+        { op: "bytes", n: 33 },
+        { op: "bytes", n: 200 },
+      ],
+    };
+    yield {
+      name: `raw/bool/seed${si}`,
+      seed: SEEDS[si],
+      ops: Array.from({ length: 32 }, () => ({ op: "bool" })),
+    };
+    yield {
+      name: `raw/mixed/seed${si}`,
+      seed: SEEDS[si],
+      ops: [
+        { op: "u32" },
+        { op: "bytes", n: 3 },
+        { op: "bool" },
+        { op: "bound", w: "u16", b: "1000" },
+        { op: "u64" },
+        { op: "range", w: "i32", s: "-10", e: "10", closed: true },
+        { op: "bytes", n: 5 },
+      ],
+    };
   }
 }
 

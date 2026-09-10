@@ -7,51 +7,7 @@
 // Ported from bc-rand-rust/src/seeded_random.rs
 
 import type { RandomNumberGenerator } from "./random-number-generator.js";
-
-/**
- * Xoshiro256** state
- * Based on xoshiro256** 1.0 by David Blackman and Sebastiano Vigna
- * https://prng.di.unimi.it/
- */
-interface Xoshiro256State {
-  s0: bigint;
-  s1: bigint;
-  s2: bigint;
-  s3: bigint;
-}
-
-/**
- * Rotate left for 64-bit bigint
- */
-function rotl(x: bigint, k: number): bigint {
-  const mask = 0xffffffffffffffffn;
-  return ((x << BigInt(k)) | (x >> BigInt(64 - k))) & mask;
-}
-
-/**
- * Xoshiro256** PRNG implementation
- * This is the same algorithm used by rand_xoshiro in Rust
- */
-function xoshiro256StarStar(state: Xoshiro256State): bigint {
-  const mask = 0xffffffffffffffffn;
-
-  // result = rotl(s1 * 5, 7) * 9
-  const result = (rotl((state.s1 * 5n) & mask, 7) * 9n) & mask;
-
-  // t = s1 << 17
-  const t = (state.s1 << 17n) & mask;
-
-  // Update state
-  state.s2 ^= state.s0;
-  state.s3 ^= state.s1;
-  state.s1 ^= state.s2;
-  state.s0 ^= state.s3;
-
-  state.s2 ^= t;
-  state.s3 = rotl(state.s3, 45);
-
-  return result;
-}
+import { Xoshiro256StarStar } from "./xoshiro.js";
 
 /**
  * A random number generator that can be used as a source of deterministic
@@ -65,7 +21,7 @@ function xoshiro256StarStar(state: Xoshiro256State): bigint {
  * for testing purposes.
  */
 export class SeededRandomNumberGenerator implements RandomNumberGenerator {
-  private readonly state: Xoshiro256State;
+  private readonly core: Xoshiro256StarStar;
 
   /**
    * Creates a new seeded random number generator.
@@ -80,26 +36,21 @@ export class SeededRandomNumberGenerator implements RandomNumberGenerator {
    * @param seed - Array of 4 64-bit unsigned integers as bigints
    */
   constructor(seed: [bigint, bigint, bigint, bigint]) {
-    this.state = {
-      s0: seed[0] & 0xffffffffffffffffn,
-      s1: seed[1] & 0xffffffffffffffffn,
-      s2: seed[2] & 0xffffffffffffffffn,
-      s3: seed[3] & 0xffffffffffffffffn,
-    };
+    this.core = new Xoshiro256StarStar(seed);
   }
 
   /**
    * Returns the next random 64-bit unsigned integer as a bigint.
    */
   nextU64(): bigint {
-    return xoshiro256StarStar(this.state);
+    return this.core.nextU64();
   }
 
   /**
    * Returns the next random 32-bit unsigned integer.
    */
   nextU32(): number {
-    return Number(this.nextU64() & 0xffffffffn) >>> 0;
+    return this.core.nextU32();
   }
 
   /**
@@ -111,7 +62,7 @@ export class SeededRandomNumberGenerator implements RandomNumberGenerator {
    */
   fillBytes(dest: Uint8Array): void {
     for (let i = 0; i < dest.length; i++) {
-      dest[i] = Number(this.nextU64() & 0xffn);
+      dest[i] = this.core.nextByte();
     }
   }
 
@@ -124,7 +75,7 @@ export class SeededRandomNumberGenerator implements RandomNumberGenerator {
   randomData(size: number): Uint8Array {
     const data = new Uint8Array(size);
     for (let i = 0; i < size; i++) {
-      data[i] = Number(this.nextU64() & 0xffn);
+      data[i] = this.core.nextByte();
     }
     return data;
   }
