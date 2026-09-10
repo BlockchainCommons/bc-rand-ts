@@ -84,6 +84,7 @@
   "engines": {
     "node": ">=22.12"
   },
+  "dependencies": {},
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.18.5",
     "@eslint/js": "^10.0.1",
@@ -104,6 +105,5 @@
     "typescript": "^7.0.2",
     "typescript6": "npm:typescript@^6.0.3",
     "vitest": "^4.1.10"
-  },
-  "dependencies": {}
+  }
 }

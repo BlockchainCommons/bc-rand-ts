@@ -4,8 +4,6 @@
 
 **`bc-rand-ts`** provides cryptographically secure random number generation and deterministic, seeded random sequences for Blockchain Commons libraries.
 
-`@blockchaincommons/rand` exposes a uniform API for the random number primitives used in higher-level [Blockchain Commons](https://blockchaincommons.com) projects: a cryptographically strong generator, a deterministic generator whose output is identical to the Rust and Swift implementations for the same seed (so cross-platform test fixtures agree), and the integer samplers built on them.
-
 ## Installation Instructions
 
 [@blockchaincommons/rand](https://www.npmjs.com/package/@blockchaincommons/rand) is published to npm. Install it with your package manager of choice:
@@ -20,8 +18,6 @@ yarn add @blockchaincommons/rand
 bun add @blockchaincommons/rand
 ```
 
-**Requirements:** TypeScript >= 5.7 is required to consume the published types. Node >= 22.12 is required.
-
 ## Usage Instructions
 
 ```typescript
@@ -32,7 +28,7 @@ import { nextWithUpperBoundU32, nextInClosedRangeI16 } from "@blockchaincommons/
 const key = randomBytes(32);            // Uint8Array<ArrayBuffer>
 const coin = randomBool();
 
-// Deterministic, identical to the Rust and Swift implementations for the same seed.
+// Deterministic, identical to the Rust implementations for the same seed.
 const rng = SeededRng.forTesting();     // the shared cross-platform fixture seed
 randomBytes(16, { rng });               // reproducible bytes
 nextWithUpperBoundU32(rng, 1000);       // uniform in [0, 1000)
@@ -73,7 +69,7 @@ Runnable examples live in the [`examples/`](https://github.com/BlockchainCommons
 To build and work on this library, you'll need the following tools:
 
 - [Node.js](https://nodejs.org/) >= 22.12 - JavaScript runtime.
-- [Bun](https://bun.sh/) - used in CI to install dependencies and run scripts (any Node-compatible package manager also works).
+- [Bun](https://bun.sh/) - used to install dependencies and run scripts (any node package manager works).
 - [TypeScript](https://www.typescriptlang.org/) >= 5.7 - language and type checker.
 
 ### Derived from ...
@@ -81,7 +77,7 @@ To build and work on this library, you'll need the following tools:
 This `bc-rand-ts` project is either derived from or was inspired by:
 
 - [BlockchainCommons/bc-rand-rust](https://github.com/BlockchainCommons/bc-rand-rust) - The reference Rust implementation, by [Wolf McNally](https://github.com/wolfmcnally).
-- [paritytech/bcts](https://github.com/paritytech/bcts) - A TypeScript port covering many Blockchain Commons' implementations, by [Parity Technologies](https://github.com/paritytech).
+- [paritytech/bcts](https://github.com/paritytech/bcts) - A TypeScript port of many Blockchain Commons' specs, by [Parity Technologies](https://github.com/paritytech).
 
 ## Financial Support
 
