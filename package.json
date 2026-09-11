@@ -5,6 +5,11 @@
   "sideEffects": false,
   "description": "Blockchain Commons random number primitives for TypeScript: secure and seeded (xoshiro256**) generators and integer samplers",
   "license": "BSD-2-Clause-Patent",
+  "author": {
+    "name": "Blockchain Commons",
+    "email": "info@blockchaincommons.com",
+    "url": "https://www.blockchaincommons.com"
+  },
   "homepage": "https://github.com/BlockchainCommons/bc-rand-ts",
   "repository": {
     "type": "git",
