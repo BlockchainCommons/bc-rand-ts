@@ -120,7 +120,7 @@ The following people directly contributed to this repository. You can add your n
 
 **Blockchain Commons Random Number Utilities for TypeScript** was produced as a collaboration between Blockchain Commons and one of our patrons, [Parity Technologies](https://parity.io): Parity wrote the wrappers based on Blockchain Commons' specifications and reference libraries. Blockchain Commons is dedicated to not just creating open infrastructure on our own, but also coordinating the work of other companies in benefiting the Commons. Thanks to Parity for working directly with us in this manner.
 
-![](.github/parity.svg)
+![](.github/assets/parity.svg)
 
 ## Responsible Disclosure
 
