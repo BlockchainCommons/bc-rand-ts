@@ -20,7 +20,7 @@ import {
 import { categories } from "./corpus/corpus";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const BASELINE_SHA256 = "c8014967d0f81bd362438a6ac3715fb00b9f835fde86ca504acdb7aba51d5971";
+const BASELINE_SHA256 = "6548f8a20aab023597c495cebbfbc0f83204d63160523425973293ee11829163";
 
 /**
  * Tombstones: the only allowed differences, keyed by a predicate over the

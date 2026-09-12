@@ -8,7 +8,8 @@ node_modules
 # Build artifacts
 dist
 coverage
-docs/api
+# Generated TypeDoc output; retain handwritten architecture notes.
+/docs/*
 *.tsbuildinfo
 
 # Editor

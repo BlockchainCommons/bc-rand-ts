@@ -72,11 +72,32 @@ describe("samplers stay in bounds", () => {
         (s, a, b) => {
           const lo = Math.min(a, b),
             hi = Math.max(a, b);
-          const v = samplers.nextInClosedRangeU16(rngFor(s), lo, hi);
+          const rng = rngFor(s);
+          if (lo === 0 && hi === 65535) {
+            // Rust's full-range path converts one raw u64 with from_u64(...).unwrap().
+            const reference = rngFor(s);
+            const draw = reference.nextU64();
+            if (draw > 65535n) {
+              expect(() => samplers.nextInClosedRangeU16(rng, lo, hi)).toThrow(
+                new RangeError("random value does not fit the target width"),
+              );
+            } else {
+              expect(samplers.nextInClosedRangeU16(rng, lo, hi)).toBe(Number(draw));
+            }
+            expect(rng.state).toEqual(reference.state);
+            return true;
+          }
+          const v = samplers.nextInClosedRangeU16(rng, lo, hi);
           return v >= lo && v <= hi;
         },
       ),
-      { numRuns: 300 },
+      {
+        numRuns: 300,
+        examples: [
+          [[0n, 12n, 0n, 0n], 65535, 0], // CI regression: raw draw 69120 overflows u16.
+          [[0n, 1n, 0n, 0n], 0, 65535], // Raw draw 5760 fits u16.
+        ],
+      },
     );
     // i64 with a NON-NEGATIVE start is in range today.
     fc.assert(

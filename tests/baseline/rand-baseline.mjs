@@ -55,7 +55,6 @@ function wideMulU64(a, b) {
 //#region src/magnitude.ts
 /**
 * Copyright © 2023-2026 Blockchain Commons, LLC
-* Copyright © 2025-2026 Parity Technologies
 *
 */
 /**
@@ -115,7 +114,6 @@ function fromMagnitude64(magnitude) {
 //#region src/random-number-generator.ts
 /**
 * Copyright © 2023-2026 Blockchain Commons, LLC
-* Copyright © 2025-2026 Parity Technologies
 *
 */
 /**
