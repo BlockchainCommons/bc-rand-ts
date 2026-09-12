@@ -13,13 +13,16 @@
 import type * as RootEntry from "../../src";
 import type * as SamplersEntry from "../../src/samplers";
 
-export type Width = "u8" | "u16" | "u32" | "u64" | "i8" | "i16" | "i32" | "i64";
+export type Width = "u8" | "u16" | "u32" | "u64" | "usize" | "i8" | "i16" | "i32" | "i64";
+export type BoundWidth = "u8" | "u16" | "u32" | "u64" | "usize";
 
 export type Op =
   | { op: "u64" }
   | { op: "u32" }
   | { op: "bytes"; n: number }
-  | { op: "bound"; w: "u8" | "u16" | "u32" | "u64"; b: string }
+  /** The packed stream (`RngCore::fill_bytes`); same as `bytes` for every generator but the seeded one. */
+  | { op: "bytesPacked"; n: number }
+  | { op: "bound"; w: BoundWidth; b: string }
   | { op: "range"; w: Width; s: string; e: string; closed: boolean }
   | { op: "bool" };
 
@@ -42,7 +45,16 @@ export interface Rng {
   nextU64(): bigint;
   nextU32(): number;
   fillBytes(dest: Uint8Array): void;
+  fillBytesPacked?(dest: Uint8Array): void;
 }
+
+/**
+ * Recipes the frozen pre-redesign bundle cannot run: the `usize` samplers
+ * and the packed byte stream did not exist there. The differential skips
+ * them; the golden file and the Rust harness cover them.
+ */
+export const noBaseline = (r: Recipe): boolean =>
+  r.ops.some((op) => op.op === "bytesPacked" || ("w" in op && op.w === "usize"));
 
 /**
  * A deterministic generator whose two integer draws consume different
@@ -98,7 +110,7 @@ export const hexToBytes = (hex: string): Uint8Array =>
 export interface VectorApi {
   seeded(words: [bigint, bigint, bigint, bigint]): Rng;
   seededFromBytes(bytes: Uint8Array): Rng;
-  bound(rng: Rng, w: "u8" | "u16" | "u32" | "u64", b: bigint): bigint;
+  bound(rng: Rng, w: BoundWidth, b: bigint): bigint;
   range(rng: Rng, w: Width, s: bigint, e: bigint, closed: boolean): bigint;
   bool(rng: Rng): boolean;
 }
@@ -146,6 +158,13 @@ export function materialize(api: VectorApi, r: Recipe): Outcome {
           out.push(bytesToHex(b));
           break;
         }
+        case "bytesPacked": {
+          const b = new Uint8Array(op.n);
+          if (rng.fillBytesPacked) rng.fillBytesPacked(b);
+          else rng.fillBytes(b);
+          out.push(bytesToHex(b));
+          break;
+        }
         case "bound":
           out.push(api.bound(rng, op.w, BigInt(op.b)).toString());
           break;
@@ -188,10 +207,12 @@ export function baselineAdapterFor(m: any): VectorApi {
     seeded: (words) => wrap(new m.SeededRandomNumberGenerator(words)),
     seededFromBytes: (bytes) => wrap(new m.SeededRandomNumberGenerator(wordsOf(bytes))),
     bound: (rng, w, b) => {
+      if (w === "usize") throw new Error("baseline: no usize samplers");
       const f = m[`rngNextWithUpperBound${cap(w)}`];
       return BigInt(f(rng, w === "u64" ? b : Number(b)));
     },
     range: (rng, w, s, e, closed) => {
+      if (w === "usize") throw new Error("baseline: no usize samplers");
       const f = m[`rngNextIn${closed ? "Closed" : ""}Range${cap(w)}`];
       const wide = w === "u64" || w === "i64";
       return BigInt(f(rng, wide ? s : Number(s), wide ? e : Number(e)));
@@ -204,11 +225,12 @@ export function baselineAdapterFor(m: any): VectorApi {
 
 /** The working tree's surface: the root entry and the `/samplers` entry. */
 export function currentAdapter(m: typeof RootEntry, samplers: typeof SamplersEntry): VectorApi {
-  const bound: Record<"u8" | "u16" | "u32" | "u64", (rng: Rng, b: bigint) => bigint> = {
+  const bound: Record<BoundWidth, (rng: Rng, b: bigint) => bigint> = {
     u8: (rng, b) => BigInt(samplers.nextWithUpperBoundU8(rng, Number(b))),
     u16: (rng, b) => BigInt(samplers.nextWithUpperBoundU16(rng, Number(b))),
     u32: (rng, b) => BigInt(samplers.nextWithUpperBoundU32(rng, Number(b))),
     u64: (rng, b) => samplers.nextWithUpperBoundU64(rng, b),
+    usize: (rng, b) => BigInt(samplers.nextWithUpperBoundUsize(rng, Number(b))),
   };
   const narrow =
     (
@@ -229,6 +251,7 @@ export function currentAdapter(m: typeof RootEntry, samplers: typeof SamplersEnt
     u16: narrow(samplers.nextInRangeU16, samplers.nextInClosedRangeU16),
     u32: narrow(samplers.nextInRangeU32, samplers.nextInClosedRangeU32),
     u64: wide(samplers.nextInRangeU64, samplers.nextInClosedRangeU64),
+    usize: narrow(samplers.nextInRangeUsize, samplers.nextInClosedRangeUsize),
     i8: narrow(samplers.nextInRangeI8, samplers.nextInClosedRangeI8),
     i16: narrow(samplers.nextInRangeI16, samplers.nextInClosedRangeI16),
     i32: narrow(samplers.nextInRangeI32, samplers.nextInClosedRangeI32),

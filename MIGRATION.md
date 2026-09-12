@@ -81,6 +81,7 @@ prefix. Widths are unchanged because the draw pattern is per width.
 | `rngNextWithUpperBoundU8/U16/U32/U64` | `nextWithUpperBoundU8/U16/U32/U64` |
 | `rngNextInRangeU8…U64`, `I8…I64` | `nextInRangeU8…U64`, `I8…I64` |
 | `rngNextInClosedRangeU8…U64`, `I8…I64` | `nextInClosedRangeU8…U64`, `I8…I64` |
+| — (`usize` was sampled through the `u32` names) | `nextWithUpperBoundUsize`, `nextInRangeUsize`, `nextInClosedRangeUsize`: the reference's 64-bit draw over `number` |
 | `rngNextWithUpperBound` / `rngNextInRange` / `rngNextInClosedRange` (deprecated u64 aliases) | removed; use the `U64` names |
 | `wideMul*`, `toMagnitude*`, `fromMagnitude*` | internal; not exported |
 
@@ -99,6 +100,14 @@ The zero-bound and inverted-range errors are `RangeError` too (they were bare
 `Error`). The full-range early return's `Error("from_u64 conversion overflow")`
 is `RangeError("random value does not fit the target width")`.
 
+**Signed range lengths.** `@bcts/rand` reproduced the reference's *unchecked*
+integer overflow: `rngNextInClosedRangeI8(rng, -128, 127)` returned only `-128`
+or `-127`, because `127 - (-128)` wrapped to `-1` before the range length was
+taken. A signed range longer than its width's `MAX` is now a `RangeError`
+(`"range length must be an integer in [0, 127], got 255"`), the outcome of the
+reference when its arithmetic is checked. Ranges whose length fits are
+unchanged.
+
 ## 4. Generators
 
 | before | after |
@@ -115,4 +124,4 @@ is `RangeError("random value does not fit the target width")`.
 Every seeded `nextU64`/`nextU32`/`fillBytes` sequence; the one-draw-per-byte
 fill rule; every sampler over the package's own generators; the full-range
 early-return branches; `TEST_SEED`. Parity with the Rust reference is recorded
-in [`RUST_DIVERGENCES.md`](./RUST_DIVERGENCES.md).
+by the [Rust cross-validation harness](./tests/rust-validation/README.md).

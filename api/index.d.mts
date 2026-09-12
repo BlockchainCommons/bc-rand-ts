@@ -1,4 +1,4 @@
-import { n as RngOptions, t as RandomNumberGenerator } from "./rng-CTLyw_Hv.mjs";
+import { n as RngOptions, t as RandomNumberGenerator } from "./rng-Cvpico1O.mjs";
 //#region src/secure-rng.d.ts
 /**
  * A generator backed by Web Crypto (`crypto.getRandomValues`), available in
@@ -67,6 +67,16 @@ export declare class SeededRng implements RandomNumberGenerator {
   nextU64Low32(): number;
   /** One 64-bit draw per byte, keeping the low byte (the reference's `fill_random_data`). */
   fillBytes(dest: Uint8Array): void;
+  /**
+   * The reference's `RngCore::fill_bytes` stream (`rand_core`'s
+   * `fill_bytes_via_next` over xoshiro256**): eight little-endian bytes per
+   * 64-bit step; a tail of five to seven bytes from one more step; a tail of
+   * one to four bytes from xoshiro's own `next_u32`, the *high* half of a
+   * step. This is what reference code reaching the generator through
+   * `rand_core` generics draws (e.g. `bc-crypto`'s Ed25519 key generation);
+   * {@link SeededRng.fillBytes} is the other stream, `fill_random_data`.
+   */
+  fillBytesPacked(dest: Uint8Array): void;
 }
 //#endregion
 //#region src/bytes.d.ts

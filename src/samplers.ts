@@ -9,6 +9,15 @@
  *   nearly-divisionless method.
  * - `nextInRangeI16(rng, start, end)` samples `[start, end)`.
  * - `nextInClosedRangeU64(rng, start, end)` samples `[start, end]`.
+ * - `…Usize` is the reference's `usize` instantiation over `number`
+ *   (`[0, 2^53 - 1]`) with the 64-bit draw; the 32-bit samplers are not a
+ *   substitute for it (they consume the generator differently).
+ *
+ * A signed range's length (`end - start`) must fit the signed width, as it
+ * must in the reference, whose arithmetic is checked: `nextInRangeI8(rng,
+ * -128, 127)` is a `RangeError`, not a sample. The unsigned full range
+ * (`0..=255` for u8) reaches the reference's raw-draw path and throws unless
+ * the draw fits, exactly as the reference panics.
  *
  * Every sampler draws `nextU64()` (masked to its width), as the reference
  * does for every width; generators that implement `nextU64Low32` serve the
@@ -18,7 +27,6 @@
  * @module samplers
  */
 import { I64_MAX, I64_MIN, U64_MAX, WIDTH, expectBigInt, expectInt } from "./domain.js";
-import { fromMagnitude64, toMagnitude, toMagnitude64 } from "./magnitude.js";
 import { type RandomNumberGenerator, drawLow32 } from "./rng.js";
 import { wideMulU8, wideMulU16, wideMulU32Parts, wideMulU64 } from "./widening.js";
 
@@ -120,6 +128,19 @@ export function nextWithUpperBoundU64(rng: RandomNumberGenerator, upperBound: bi
   return m[1];
 }
 
+/**
+ * Uniform in `[0, upperBound)` for the reference's `usize` instantiation:
+ * a `number` in `[1, 2^53 - 1]`, drawn as the 64-bit sampler draws (one
+ * full `nextU64()` per attempt, 64×64 rejection arithmetic) — *not* as the
+ * 32-bit samplers do, which consume the generator differently. For sizes
+ * above `2^53 - 1` use {@link nextWithUpperBoundU64}.
+ * @throws {RangeError} unless `upperBound` is an integer in `[1, 2^53 - 1]`.
+ */
+export function nextWithUpperBoundUsize(rng: RandomNumberGenerator, upperBound: number): number {
+  const ub = expectInt(upperBound, 1, WIDTH.usize.max, "upperBound");
+  return Number(nextWithUpperBoundU64(rng, BigInt(ub)));
+}
+
 // ---------------------------------------------------------------------------
 // Half-open ranges: uniform in [start, end)
 // ---------------------------------------------------------------------------
@@ -177,6 +198,18 @@ export function nextInRangeU64(rng: RandomNumberGenerator, start: bigint, end: b
 }
 
 /**
+ * Uniform in `[start, end)` for the reference's `usize` instantiation
+ * (`number`s in `[0, 2^53 - 1]`, 64-bit draw); see {@link nextWithUpperBoundUsize}.
+ * @throws {RangeError} unless `start < end` are integers in `[0, 2^53 - 1]`.
+ */
+export function nextInRangeUsize(rng: RandomNumberGenerator, start: number, end: number): number {
+  const lo = expectInt(start, WIDTH.usize.min, WIDTH.usize.max, "start");
+  const hi = expectInt(end, WIDTH.usize.min, WIDTH.usize.max, "end");
+  expectOpen(lo, hi);
+  return Number(nextInRangeU64(rng, BigInt(lo), BigInt(hi)));
+}
+
+/**
  * Random `i8` in `[start, end)`.
  * @throws {RangeError} unless both are integers in `[-128, 127]` and `start < end`.
  */
@@ -184,9 +217,10 @@ export function nextInRangeI8(rng: RandomNumberGenerator, start: number, end: nu
   const lo = expectInt(start, WIDTH.i8.min, WIDTH.i8.max, "start");
   const hi = expectInt(end, WIDTH.i8.min, WIDTH.i8.max, "end");
   expectOpen(lo, hi);
-  const delta = toMagnitude(hi - lo, 8);
-  if (delta === 0xff) return Number(fitOrThrow(rng.nextU64(), 0x7fn));
-  return ((lo + nextWithUpperBoundU8(rng, delta)) << 24) >> 24;
+  // `end - start` is computed in i8 by the reference; a length above
+  // i8::MAX overflows there (a panic when checked): outside the domain.
+  const delta = expectInt(hi - lo, 1, WIDTH.i8.max, "range length");
+  return lo + nextWithUpperBoundU8(rng, delta);
 }
 
 /**
@@ -197,9 +231,10 @@ export function nextInRangeI16(rng: RandomNumberGenerator, start: number, end: n
   const lo = expectInt(start, WIDTH.i16.min, WIDTH.i16.max, "start");
   const hi = expectInt(end, WIDTH.i16.min, WIDTH.i16.max, "end");
   expectOpen(lo, hi);
-  const delta = toMagnitude(hi - lo, 16);
-  if (delta === 0xffff) return Number(fitOrThrow(rng.nextU64(), 0x7fffn));
-  return ((lo + nextWithUpperBoundU16(rng, delta)) << 16) >> 16;
+  // `end - start` is computed in i16 by the reference; a length above
+  // i16::MAX overflows there (a panic when checked): outside the domain.
+  const delta = expectInt(hi - lo, 1, WIDTH.i16.max, "range length");
+  return lo + nextWithUpperBoundU16(rng, delta);
 }
 
 /**
@@ -210,24 +245,26 @@ export function nextInRangeI32(rng: RandomNumberGenerator, start: number, end: n
   const lo = expectInt(start, WIDTH.i32.min, WIDTH.i32.max, "start");
   const hi = expectInt(end, WIDTH.i32.min, WIDTH.i32.max, "end");
   expectOpen(lo, hi);
-  const delta = toMagnitude(hi - lo, 32);
-  if (delta === 0xffffffff) return Number(fitOrThrow(rng.nextU64(), 0x7fffffffn));
-  return (lo + nextWithUpperBoundU32(rng, delta)) | 0;
+  // `end - start` is computed in i32 by the reference; a length above
+  // i32::MAX overflows there (a panic when checked): outside the domain.
+  const delta = expectInt(hi - lo, 1, WIDTH.i32.max, "range length");
+  return lo + nextWithUpperBoundU32(rng, delta);
 }
 
 /**
- * Random `i64` in `[start, end)`. The result is `start + random` as wrapping
- * signed 64-bit addition, with the random magnitude reinterpreted as a signed
- * word (the reference's arithmetic).
- * @throws {RangeError} unless both are `bigint`s in `[-2^63, 2^63 - 1]` and `start < end`.
+ * Random `i64` in `[start, end)`: `start + random` for a random below the
+ * range length, drawn as the u64 sampler draws.
+ * @throws {RangeError} unless both are `bigint`s in `[-2^63, 2^63 - 1]`,
+ * `start < end`, and `end - start` fits `i64` (the reference's arithmetic).
  */
 export function nextInRangeI64(rng: RandomNumberGenerator, start: bigint, end: bigint): bigint {
   const lo = expectBigInt(start, I64_MIN, I64_MAX, "start");
   const hi = expectBigInt(end, I64_MIN, I64_MAX, "end");
   expectOpen(lo, hi);
-  const delta = toMagnitude64(hi - lo);
-  if (delta === U64_MAX) return fitOrThrow(rng.nextU64(), I64_MAX);
-  return BigInt.asIntN(64, lo + fromMagnitude64(nextWithUpperBoundU64(rng, delta)));
+  // `end - start` is computed in i64 by the reference; a length above
+  // i64::MAX overflows there (a panic when checked): outside the domain.
+  const delta = expectBigInt(hi - lo, 1n, I64_MAX, "range length");
+  return lo + nextWithUpperBoundU64(rng, delta);
 }
 
 // ---------------------------------------------------------------------------
@@ -303,6 +340,24 @@ export function nextInClosedRangeU64(
 }
 
 /**
+ * Uniform in `[start, end]` for the reference's `usize` instantiation
+ * (`number`s in `[0, 2^53 - 1]`, 64-bit draw); see {@link nextWithUpperBoundUsize}.
+ * This is the sampler a `RangeInclusive<usize>` in the reference maps to
+ * (salt lengths, share counts).
+ * @throws {RangeError} unless `start <= end` are integers in `[0, 2^53 - 1]`.
+ */
+export function nextInClosedRangeUsize(
+  rng: RandomNumberGenerator,
+  start: number,
+  end: number,
+): number {
+  const lo = expectInt(start, WIDTH.usize.min, WIDTH.usize.max, "start");
+  const hi = expectInt(end, WIDTH.usize.min, WIDTH.usize.max, "end");
+  expectClosed(lo, hi);
+  return Number(nextInClosedRangeU64(rng, BigInt(lo), BigInt(hi)));
+}
+
+/**
  * Random `i8` in `[start, end]`.
  * @throws {RangeError} unless both are integers in `[-128, 127]` and `start <= end`.
  */
@@ -314,9 +369,10 @@ export function nextInClosedRangeI8(
   const lo = expectInt(start, WIDTH.i8.min, WIDTH.i8.max, "start");
   const hi = expectInt(end, WIDTH.i8.min, WIDTH.i8.max, "end");
   expectClosed(lo, hi);
-  const delta = toMagnitude(hi - lo, 8);
-  if (delta === 0xff) return Number(fitOrThrow(rng.nextU64(), 0x7fn));
-  return ((lo + nextWithUpperBoundU8(rng, delta + 1)) << 24) >> 24;
+  // `end - start` is computed in i8 by the reference; a length above
+  // i8::MAX overflows there (a panic when checked): outside the domain.
+  const delta = expectInt(hi - lo, 0, WIDTH.i8.max, "range length");
+  return lo + nextWithUpperBoundU8(rng, delta + 1);
 }
 
 /**
@@ -331,9 +387,10 @@ export function nextInClosedRangeI16(
   const lo = expectInt(start, WIDTH.i16.min, WIDTH.i16.max, "start");
   const hi = expectInt(end, WIDTH.i16.min, WIDTH.i16.max, "end");
   expectClosed(lo, hi);
-  const delta = toMagnitude(hi - lo, 16);
-  if (delta === 0xffff) return Number(fitOrThrow(rng.nextU64(), 0x7fffn));
-  return ((lo + nextWithUpperBoundU16(rng, delta + 1)) << 16) >> 16;
+  // `end - start` is computed in i16 by the reference; a length above
+  // i16::MAX overflows there (a panic when checked): outside the domain.
+  const delta = expectInt(hi - lo, 0, WIDTH.i16.max, "range length");
+  return lo + nextWithUpperBoundU16(rng, delta + 1);
 }
 
 /**
@@ -348,9 +405,10 @@ export function nextInClosedRangeI32(
   const lo = expectInt(start, WIDTH.i32.min, WIDTH.i32.max, "start");
   const hi = expectInt(end, WIDTH.i32.min, WIDTH.i32.max, "end");
   expectClosed(lo, hi);
-  const delta = toMagnitude(hi - lo, 32);
-  if (delta === 0xffffffff) return Number(fitOrThrow(rng.nextU64(), 0x7fffffffn));
-  return (lo + nextWithUpperBoundU32(rng, delta + 1)) | 0;
+  // `end - start` is computed in i32 by the reference; a length above
+  // i32::MAX overflows there (a panic when checked): outside the domain.
+  const delta = expectInt(hi - lo, 0, WIDTH.i32.max, "range length");
+  return lo + nextWithUpperBoundU32(rng, delta + 1);
 }
 
 /**
@@ -365,7 +423,7 @@ export function nextInClosedRangeI64(
   const lo = expectBigInt(start, I64_MIN, I64_MAX, "start");
   const hi = expectBigInt(end, I64_MIN, I64_MAX, "end");
   expectClosed(lo, hi);
-  const delta = toMagnitude64(hi - lo);
-  if (delta === U64_MAX) return fitOrThrow(rng.nextU64(), I64_MAX);
-  return BigInt.asIntN(64, lo + fromMagnitude64(nextWithUpperBoundU64(rng, delta + 1n)));
+  // As for the half-open form: `end - start` must fit i64 (the reference's arithmetic).
+  const delta = expectBigInt(hi - lo, 0n, I64_MAX, "range length");
+  return lo + nextWithUpperBoundU64(rng, delta + 1n);
 }

@@ -14,13 +14,20 @@ import {
   nextWithUpperBoundU16,
   nextWithUpperBoundU32,
   nextWithUpperBoundU64,
+  nextWithUpperBoundUsize,
   nextInRangeU64,
+  nextInRangeUsize,
+  nextInRangeI8,
   nextInRangeI32,
+  nextInRangeI64,
   nextInClosedRangeU64,
+  nextInClosedRangeUsize,
+  nextInClosedRangeI8,
+  nextInClosedRangeI16,
   nextInClosedRangeI32,
+  nextInClosedRangeI64,
 } from "../src/samplers";
 import { wideMulU8, wideMulU16, wideMulU32, wideMulU64 } from "../src/widening";
-import { toMagnitude, toMagnitude64, fromMagnitude, fromMagnitude64 } from "../src/magnitude";
 
 function bytesToHex(bytes: Uint8Array): string {
   return Array.from(bytes)
@@ -317,44 +324,6 @@ describe("widening multiplication", () => {
   });
 });
 
-describe("magnitude conversion (MIN-value edges)", () => {
-  test("toMagnitude for i8::MIN, i16::MIN, i32::MIN", () => {
-    // i8::MIN = -128 → wrapping_abs as u8 = 128
-    expect(toMagnitude(-128, 8)).toBe(128);
-    // i16::MIN = -32768 → wrapping_abs as u16 = 32768
-    expect(toMagnitude(-32768, 16)).toBe(32768);
-    // i32::MIN = -2147483648 → wrapping_abs as u32 = 2147483648
-    expect(toMagnitude(-2147483648, 32)).toBe(2147483648);
-  });
-
-  test("toMagnitude64 for i64::MIN", () => {
-    const i64Min = -(1n << 63n);
-    // wrapping_abs(i64::MIN) as u64 = 0x8000000000000000
-    expect(toMagnitude64(i64Min)).toBe(0x8000000000000000n);
-  });
-
-  test("fromMagnitude reinterprets as signed", () => {
-    expect(fromMagnitude(128, 8)).toBe(-128);
-    expect(fromMagnitude(32768, 16)).toBe(-32768);
-    expect(fromMagnitude(2147483648, 32)).toBe(-2147483648);
-  });
-
-  test("fromMagnitude64 reinterprets sign bit", () => {
-    expect(fromMagnitude64(0x8000000000000000n)).toBe(-(1n << 63n));
-    expect(fromMagnitude64(0xffffffffffffffffn)).toBe(-1n);
-    expect(fromMagnitude64(0n)).toBe(0n);
-    expect(fromMagnitude64(0x7fffffffffffffffn)).toBe(0x7fffffffffffffffn);
-  });
-
-  test("toMagnitude / fromMagnitude round-trip on MIN edges", () => {
-    expect(fromMagnitude(toMagnitude(-128, 8), 8)).toBe(-128);
-    expect(fromMagnitude(toMagnitude(-32768, 16), 16)).toBe(-32768);
-    expect(fromMagnitude(toMagnitude(-2147483648, 32), 32)).toBe(-2147483648);
-    const i64Min = -(1n << 63n);
-    expect(fromMagnitude64(toMagnitude64(i64Min))).toBe(i64Min);
-  });
-});
-
 describe("Xoshiro256StarStar state bytes (internal core)", () => {
   it("toBytes/fromBytes round-trip the state and continue the same stream", () => {
     const a = new Xoshiro256StarStar([1n, 2n, 3n, 4n]);
@@ -410,5 +379,133 @@ describe("coverage of the remaining branches", () => {
     expect(small.every((v) => v >= 0 && v < 255)).toBe(true);
     const mid = Array.from({ length: 64 }, () => nextWithUpperBoundU16(rng, 65535));
     expect(mid.every((v) => v >= 0 && v < 65535)).toBe(true);
+  });
+});
+
+describe("SeededRng.fillBytesPacked (the reference's RngCore::fill_bytes stream)", () => {
+  // bc-rand 0.5.0, TEST_SEED: `RngCore::fill_bytes` on the seeded generator,
+  // which is also what `bc_crypto::ed25519_new_private_key_using` draws.
+  const PACKED_32 = "7e061813569f540fb501367178373e8859424ceddfc39407bb066f2953f140dc";
+  const PACKED_11 = "7e061813569f540f78373e"; // tail of 3 from xoshiro's HIGH half
+
+  test("32 bytes: eight little-endian bytes per 64-bit step", () => {
+    const rng = SeededRng.forTesting();
+    const out = new Uint8Array(32);
+    rng.fillBytesPacked(out);
+    expect(bytesToHex(out)).toBe(PACKED_32);
+    // The same bytes as four nextU64() draws laid out little-endian.
+    const words = SeededRng.forTesting();
+    const view = new DataView(new ArrayBuffer(32));
+    for (let i = 0; i < 4; i++) view.setBigUint64(i * 8, words.nextU64(), true);
+    expect(bytesToHex(new Uint8Array(view.buffer))).toBe(PACKED_32);
+  });
+
+  test("a 1-4 byte tail comes from the high half of one more step", () => {
+    const rng = SeededRng.forTesting();
+    const out = new Uint8Array(11);
+    rng.fillBytesPacked(out);
+    expect(bytesToHex(out)).toBe(PACKED_11);
+    const two = SeededRng.forTesting();
+    two.nextU64();
+    const second = two.nextU64();
+    expect(bytesToHex(out.subarray(8))).toBe(
+      bytesToHex(Uint8Array.from([0, 1, 2], (k) => Number((second >> BigInt(32 + 8 * k)) & 0xffn))),
+    );
+  });
+
+  test("a 5-7 byte tail comes from a whole extra step, truncated", () => {
+    const rng = SeededRng.forTesting();
+    const out = new Uint8Array(13);
+    rng.fillBytesPacked(out);
+    expect(bytesToHex(out)).toBe(PACKED_32.slice(0, 26));
+  });
+
+  test("is a different stream from fillBytes (one draw per byte), and consumes state", () => {
+    const a = SeededRng.forTesting();
+    const b = SeededRng.forTesting();
+    const pa = new Uint8Array(16);
+    const pb = new Uint8Array(16);
+    a.fillBytesPacked(pa);
+    b.fillBytes(pb);
+    expect(bytesToHex(pa)).not.toBe(bytesToHex(pb));
+    expect(bytesToHex(pb)).toBe("7eb559bbbf6cce2632cf9f194aeb5094");
+    // Two steps consumed by 16 packed bytes.
+    const c = SeededRng.forTesting();
+    c.nextU64();
+    c.nextU64();
+    expect(a.nextU64()).toBe(c.nextU64());
+  });
+
+  test("an empty buffer draws nothing", () => {
+    const rng = SeededRng.forTesting();
+    rng.fillBytesPacked(new Uint8Array(0));
+    expect(rng.nextU64()).toBe(SeededRng.forTesting().nextU64());
+  });
+});
+
+describe("usize samplers (the reference's usize instantiation)", () => {
+  test("closed range 8..=32 draws as bc-rand's rng_next_in_closed_range::<usize>", () => {
+    // bc-rand 0.5.0, TEST_SEED: [9, 21, 8, 29, 9, 28]; the u32 sampler gives
+    // [9, 19, 31, 12, 12, 24] for the same seed — a different draw.
+    const rng = SeededRng.forTesting();
+    expect(Array.from({ length: 6 }, () => nextInClosedRangeUsize(rng, 8, 32))).toEqual([
+      9, 21, 8, 29, 9, 28,
+    ]);
+    const u32 = SeededRng.forTesting();
+    expect(Array.from({ length: 6 }, () => nextInClosedRangeI32(u32, 8, 32))).toEqual([
+      9, 19, 31, 12, 12, 24,
+    ]);
+  });
+  test("equals the u64 samplers for the same arguments", () => {
+    for (const [s, e] of [
+      [0, 1],
+      [8, 32],
+      [100, 4000],
+      [0, 9007199254740991],
+    ] as [number, number][]) {
+      const a = SeededRng.forTesting();
+      const b = SeededRng.forTesting();
+      expect(nextInRangeUsize(a, s, e)).toBe(Number(nextInRangeU64(b, BigInt(s), BigInt(e))));
+      expect(nextInClosedRangeUsize(a, s, e)).toBe(
+        Number(nextInClosedRangeU64(b, BigInt(s), BigInt(e))),
+      );
+      expect(nextWithUpperBoundUsize(a, e)).toBe(Number(nextWithUpperBoundU64(b, BigInt(e))));
+    }
+  });
+  test("arguments outside [0, 2^53 - 1] or non-integers are RangeErrors", () => {
+    const rng = SeededRng.forTesting();
+    expect(() => nextWithUpperBoundUsize(rng, 0)).toThrow(RangeError);
+    expect(() => nextWithUpperBoundUsize(rng, 9007199254740992)).toThrow(
+      "upperBound must be an integer in [1, 9007199254740991], got 9007199254740992",
+    );
+    expect(() => nextInRangeUsize(rng, -1, 5)).toThrow(RangeError);
+    expect(() => nextInRangeUsize(rng, 5, 5)).toThrow("start must be less than end");
+    expect(() => nextInClosedRangeUsize(rng, 1.5, 5)).toThrow("got 1.5");
+    expect(() => nextInClosedRangeUsize(rng, 6, 5)).toThrow(RangeError);
+  });
+});
+
+describe("signed range lengths (the reference's checked arithmetic)", () => {
+  test("a length above the width's MAX is a RangeError for every signed width", () => {
+    const rng = SeededRng.forTesting();
+    expect(() => nextInClosedRangeI8(rng, -128, 127)).toThrow(
+      "range length must be an integer in [0, 127], got 255",
+    );
+    expect(() => nextInRangeI8(rng, -1, 127)).toThrow("got 128");
+    expect(() => nextInClosedRangeI16(rng, -32768, 32767)).toThrow(RangeError);
+    expect(() => nextInRangeI32(rng, -128, 2147483647)).toThrow(RangeError);
+    expect(() => nextInClosedRangeI64(rng, -7n, 9223372036854775807n)).toThrow(
+      "range length must be an integer in [0, 9223372036854775807], got 9223372036854775814",
+    );
+    expect(() => nextInRangeI64(rng, -9223372036854775808n, 0n)).toThrow(RangeError);
+    // Nothing was drawn.
+    expect(rng.nextU64()).toBe(SeededRng.forTesting().nextU64());
+  });
+  test("a length of exactly the width's MAX samples the whole range", () => {
+    const rng = SeededRng.forTesting();
+    const v = nextInClosedRangeI8(rng, -1, 126);
+    expect(v >= -1 && v <= 126).toBe(true);
+    const w = nextInRangeI8(rng, -127, 0);
+    expect(w >= -127 && w < 0).toBe(true);
   });
 });

@@ -22,7 +22,11 @@ bun add @blockchaincommons/rand
 
 ```typescript
 import { SeededRng, SecureRng, secureRng, randomBytes, randomBool } from "@blockchaincommons/rand";
-import { nextWithUpperBoundU32, nextInClosedRangeI16 } from "@blockchaincommons/rand/samplers";
+import {
+  nextWithUpperBoundU32,
+  nextInClosedRangeI16,
+  nextInClosedRangeUsize,
+} from "@blockchaincommons/rand/samplers";
 
 // Cryptographically secure (Web Crypto), the default for every helper.
 const key = randomBytes(32);            // Uint8Array<ArrayBuffer>
@@ -30,9 +34,12 @@ const coin = randomBool();
 
 // Deterministic, identical to the Rust implementations for the same seed.
 const rng = SeededRng.forTesting();     // the shared cross-platform fixture seed
-randomBytes(16, { rng });               // reproducible bytes
+randomBytes(16, { rng });               // reproducible bytes (one 64-bit step per byte)
 nextWithUpperBoundU32(rng, 1000);       // uniform in [0, 1000)
 nextInClosedRangeI16(rng, -10, 10);     // uniform in [-10, 10]
+nextInClosedRangeUsize(rng, 8, 32);     // the reference's `usize` draw (64-bit), for sizes and counts
+const packed = new Uint8Array(32);
+rng.fillBytesPacked(packed);            // rand_core's `fill_bytes` layout (8 bytes per step)
 
 // Persist and fork a seeded generator.
 const state = rng.state;                // 32 little-endian bytes
@@ -41,6 +48,8 @@ const fork = rng.clone();
 
 // Arguments are validated: anything outside the width throws a RangeError, e.g.
 // nextWithUpperBoundU32(rng, 2 ** 32) -> "upperBound must be an integer in [1, 4294967295], got 4294967296"
+// A signed range's length must fit its width, as in the reference:
+// nextInClosedRangeI8(rng, -128, 127) -> "range length must be an integer in [0, 127], got 255"
 
 // Any object with nextU32/nextU64/fillBytes is a RandomNumberGenerator.
 const secure: SecureRng = secureRng();
@@ -55,12 +64,13 @@ Runnable examples live in the [`examples/`](https://github.com/BlockchainCommons
 
 ### Version History
 
+- **1.0.0-beta.2 (September 12, 2026)** - Signed ranges longer than the width reject instead of sampling a wrong range; `Usize` samplers; `SeededRng.fillBytesPacked`.
 - **1.0.0-beta.1 (September 9, 2026)** - Initial beta implementation.
 
 ### Roadmap
 
 - Continued testing and auditing on the path from beta to a stable **1.0.0** release.
-- Continued parity with the Rust reference implementation as it evolves (see [`RUST_DIVERGENCES.md`](./RUST_DIVERGENCES.md)).
+- Continued parity with the Rust reference implementation as it evolves.
 
 ### Dependencies
 

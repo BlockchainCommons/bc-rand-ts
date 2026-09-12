@@ -2,8 +2,12 @@
 //!
 //!   cargo run --release -- ../vectors/vectors.json
 //!
-//! Exit 0 iff every vector matches, is an allowlisted expected divergence, or
-//! is JS-only (an input the reference's integer types cannot express).
+//! Exit 0 iff every vector matches or is JS-only (an input the reference's
+//! integer types cannot express, or a `usize` above 2^53 - 1 that a `number`
+//! cannot hold). There is no expected-divergence allowlist: every outcome
+//! the reference produces, the port produces.
+//! Throws are compared by class, not message: any `throw:…` on either side
+//! is one outcome, `throw`.
 use bc_rand::{
     rng_next_in_closed_range, rng_next_in_range, rng_next_with_upper_bound, rng_random_bool,
     RandomNumberGenerator, SeededRandomNumberGenerator,
@@ -46,6 +50,9 @@ enum Op {
     U32,
     #[serde(rename = "bytes")]
     Bytes { n: usize },
+    /// `RngCore::fill_bytes` — the packed stream (`fill_bytes_via_next` for the seeded generator).
+    #[serde(rename = "bytesPacked")]
+    BytesPacked { n: usize },
     #[serde(rename = "bound")]
     Bound { w: String, b: String },
     #[serde(rename = "range")]
@@ -64,7 +71,13 @@ struct Outcome {
     state: Vec<String>,
 }
 
-const THROW: &str = "throw:random value does not fit the target width";
+/// Every panic of the reference is one outcome class; the port's `throw:<message>` is the same class.
+const THROW: &str = "throw";
+fn norm_throws(out: &[String]) -> Vec<String> {
+    out.iter().map(|o| if o.starts_with("throw") { THROW.to_string() } else { o.clone() }).collect()
+}
+/// A `usize` argument the port cannot hold exactly in a `number`: JS-only.
+const USIZE_MAX_SAFE: u128 = 9_007_199_254_740_991;
 
 /// The recipes' own generator (`CounterRng` in tests/vectors/recipes.ts): every
 /// byte is a counter stepped by 17; `next_u32` takes four bytes, `next_u64`
@@ -106,44 +119,6 @@ impl RngCore for CounterRng {
 impl CryptoRng for CounterRng {}
 impl RandomNumberGenerator for CounterRng {}
 
-/// Expected divergences: documented in RUST_DIVERGENCES.md. Keep in sync.
-/// Consulted only when the outcomes differ, so an entry whose fix has landed
-/// simply stops firing.
-fn expected_divergence(v: &Vector) -> Option<&'static str> {
-    let counter = matches!(v.gen, Generator::Counter { .. });
-    // The all-zero seed: the reference substitutes `seed_from_u64(0)`
-    // (rand_xoshiro's `deal_with_zero_seed`), and so does the port. Kept as a
-    // guard in case a regression reintroduces the earlier divergence, where
-    // the port threw instead.
-    if v.name.starts_with("seed/zero/") {
-        return Some("zero-seed-substitution");
-    }
-    for op in &v.ops {
-        match op {
-            // The port's u32-width samplers draw `next_u32()`; the reference
-            // draws `next_u64() & mask`. Observable only with a generator
-            // whose two draws differ. Kept as a guard in case a regression
-            // reintroduces the earlier divergence, where the two disagreed.
-            Op::Bound { w, .. } | Op::Range { w, .. } if counter && (w == "u32" || w == "i32") => {
-                return Some("counter-u32-draw-width");
-            }
-            // A signed range whose length exceeds i64::MAX overflows
-            // `upper_bound - lower_bound` in the reference (wraps in release,
-            // panics in debug). TypeScript uses exact arithmetic and samples the
-            // range correctly. Both outcomes are recorded; the TS one is the contract.
-            Op::Range { w, s, e, .. } if w == "i64" => {
-                let s: i128 = s.parse().unwrap();
-                let e: i128 = e.parse().unwrap();
-                if e - s > i64::MAX as i128 {
-                    return Some("i64-range-length-overflow");
-                }
-            }
-            _ => {}
-        }
-    }
-    None
-}
-
 fn hex(b: &[u8]) -> String {
     b.iter().map(|x| format!("{x:02x}")).collect()
 }
@@ -159,6 +134,7 @@ fn unhex(s: &str) -> Vec<u8> {
 macro_rules! bound {
     ($rng:expr, $t:ty, $b:expr) => {{
         let Ok(b) = $b.parse::<$t>() else { return None };
+        if stringify!($t) == "usize" && (b as u128) > USIZE_MAX_SAFE { return None; }
         catch_unwind(AssertUnwindSafe(|| {
             rng_next_with_upper_bound::<$t>($rng, b).to_string()
         }))
@@ -170,6 +146,9 @@ macro_rules! range {
         let (Ok(s), Ok(e)) = ($s.parse::<$t>(), $e.parse::<$t>()) else {
             return None;
         };
+        if stringify!($t) == "usize" && ((s as u128) > USIZE_MAX_SAFE || (e as u128) > USIZE_MAX_SAFE) {
+            return None;
+        }
         catch_unwind(AssertUnwindSafe(|| {
             if $closed {
                 rng_next_in_closed_range::<$t>($rng, &(s..=e)).to_string()
@@ -188,6 +167,11 @@ fn run_with<R: RandomNumberGenerator>(rng: &mut R, v: &Vector) -> Option<Outcome
             Op::U64 => rng.next_u64().to_string(),
             Op::U32 => RngCore::next_u32(rng).to_string(),
             Op::Bytes { n } => hex(&rng.random_data(*n)),
+            Op::BytesPacked { n } => {
+                let mut b = vec![0u8; *n];
+                RngCore::fill_bytes(rng, &mut b);
+                hex(&b)
+            }
             Op::Bool => {
                 if rng_random_bool(rng) {
                     "1".into()
@@ -200,6 +184,7 @@ fn run_with<R: RandomNumberGenerator>(rng: &mut R, v: &Vector) -> Option<Outcome
                 "u16" => bound!(rng, u16, b),
                 "u32" => bound!(rng, u32, b),
                 "u64" => bound!(rng, u64, b),
+                "usize" => bound!(rng, usize, b),
                 _ => unreachable!(),
             },
             Op::Range { w, s, e, closed } => match w.as_str() {
@@ -207,6 +192,7 @@ fn run_with<R: RandomNumberGenerator>(rng: &mut R, v: &Vector) -> Option<Outcome
                 "u16" => range!(rng, u16, s, e, *closed),
                 "u32" => range!(rng, u32, s, e, *closed),
                 "u64" => range!(rng, u64, s, e, *closed),
+                "usize" => range!(rng, usize, s, e, *closed),
                 "i8" => range!(rng, i8, s, e, *closed),
                 "i16" => range!(rng, i16, s, e, *closed),
                 "i32" => range!(rng, i32, s, e, *closed),
@@ -252,29 +238,23 @@ fn main() {
     let path = std::env::args().nth(1).expect("path to vectors.json");
     let file: File = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
     assert_eq!(file.count, file.vectors.len());
-    let (mut ok, mut expected, mut js_only, mut mismatch) = (0, 0, 0, 0);
+    let (mut ok, mut js_only, mut mismatch) = (0, 0, 0);
     for v in &file.vectors {
         let Some(got) = run(v) else {
             js_only += 1;
             continue;
         };
-        if got == v.expect {
+        let want = Outcome { out: norm_throws(&v.expect.out), state: v.expect.state.clone() };
+        let got = Outcome { out: norm_throws(&got.out), state: got.state };
+        if got == want {
             ok += 1;
             continue;
         }
-        if let Some(id) = expected_divergence(v) {
-            expected += 1;
-            eprintln!("expected-divergence [{id}] {}", v.name);
-            continue;
-        }
         mismatch += 1;
-        eprintln!(
-            "MISMATCH {}\n  rust: {:?}\n  ts:   {:?}",
-            v.name, got, v.expect
-        );
+        eprintln!("MISMATCH {}\n  rust: {:?}\n  ts:   {:?}", v.name, got, want);
     }
     println!(
-        "{} vectors - {ok} match, {expected} expected-divergence, {js_only} js-only, {mismatch} MISMATCH",
+        "{} vectors - {ok} match, {js_only} js-only, {mismatch} MISMATCH",
         file.vectors.len()
     );
     std::process::exit(if mismatch == 0 { 0 } else { 1 });
