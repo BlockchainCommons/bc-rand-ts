@@ -3,7 +3,13 @@
  * head-width cliff ±1 × ranges of length 1, 2, cliff, full. Pure and
  * deterministic; generators so nothing large lives in memory at once.
  */
-import { type Recipe, type Op, type Width, wordsToSeedHex } from "../vectors/recipes";
+import {
+  type Recipe,
+  type Op,
+  type Width,
+  type BoundWidth,
+  wordsToSeedHex,
+} from "../vectors/recipes";
 
 export const SEEDS: [string, string, string, string][] = [
   ["17295166580085024720", "422929670265678780", "5577237070365765850", "7953171132032326923"],
@@ -18,11 +24,13 @@ export const SEEDS: [string, string, string, string][] = [
 
 const seeded = (si: number): Recipe["gen"] => ({ kind: "seeded", words: SEEDS[si] });
 
-const U_MAX: Record<"u8" | "u16" | "u32" | "u64", bigint> = {
+const U_MAX: Record<BoundWidth, bigint> = {
   u8: 255n,
   u16: 65535n,
   u32: 4294967295n,
   u64: 18446744073709551615n,
+  // The reference's usize over the integers a `number` holds exactly.
+  usize: 9007199254740991n,
 };
 const I_MIN: Record<"i8" | "i16" | "i32" | "i64", bigint> = {
   i8: -128n,
@@ -61,7 +69,8 @@ const CLIFFS = [
 ];
 
 function* boundRecipes(): Generator<Recipe> {
-  for (const w of ["u8", "u16", "u32", "u64"] as const) {
+  // `usize` last, so the golden stride over the earlier widths is unchanged.
+  for (const w of ["u8", "u16", "u32", "u64", "usize"] as const) {
     for (const b of CLIFFS.filter((c) => c <= U_MAX[w])) {
       for (let si = 0; si < SEEDS.length; si++) {
         const ops: Op[] = Array.from({ length: 12 }, () => ({ op: "bound", w, b: b.toString() }));
@@ -72,7 +81,8 @@ function* boundRecipes(): Generator<Recipe> {
 }
 
 function* rangeRecipes(): Generator<Recipe> {
-  const widths: Width[] = ["u8", "u16", "u32", "u64", "i8", "i16", "i32", "i64"];
+  // `usize` last, so the golden stride over the earlier widths is unchanged.
+  const widths: Width[] = ["u8", "u16", "u32", "u64", "i8", "i16", "i32", "i64", "usize"];
   for (const w of widths) {
     const signed = w.startsWith("i");
     const min = signed ? I_MIN[w as keyof typeof I_MIN] : 0n;
@@ -127,6 +137,24 @@ function* rawRecipes(): Generator<Recipe> {
         { op: "bytes", n: 32 },
         { op: "bytes", n: 33 },
         { op: "bytes", n: 200 },
+      ],
+    };
+    yield {
+      // The packed stream: whole words, a 5–7 byte tail (one more word), a
+      // 1–4 byte tail (xoshiro's high-half `next_u32`), and empty.
+      name: `raw/packed/seed${si}`,
+      gen: seeded(si),
+      ops: [
+        { op: "bytesPacked", n: 32 },
+        { op: "bytesPacked", n: 11 },
+        { op: "bytesPacked", n: 3 },
+        { op: "bytesPacked", n: 0 },
+        { op: "bytesPacked", n: 1 },
+        { op: "bytesPacked", n: 4 },
+        { op: "bytesPacked", n: 5 },
+        { op: "bytesPacked", n: 7 },
+        { op: "bytesPacked", n: 8 },
+        { op: "u64" },
       ],
     };
     yield {
@@ -200,9 +228,16 @@ function* counterRecipes(): Generator<Recipe> {
     yield {
       name: `counter/raw/start${start}`,
       gen: counter,
-      ops: [{ op: "u32" }, { op: "u64" }, { op: "bytes", n: 5 }, { op: "bool" }, { op: "u32" }],
+      ops: [
+        { op: "u32" },
+        { op: "u64" },
+        { op: "bytes", n: 5 },
+        { op: "bool" },
+        { op: "u32" },
+        { op: "bytesPacked", n: 5 },
+      ],
     };
-    for (const w of ["u8", "u16", "u32", "u64"] as const) {
+    for (const w of ["u8", "u16", "u32", "u64", "usize"] as const) {
       for (const b of [7n, U_MAX[w] >> 1n, U_MAX[w]]) {
         yield {
           name: `counter/bound/${w}/${b}/start${start}`,
@@ -211,12 +246,14 @@ function* counterRecipes(): Generator<Recipe> {
         };
       }
     }
-    const widths: Width[] = ["u8", "u16", "u32", "u64", "i8", "i16", "i32", "i64"];
+    const widths: Width[] = ["u8", "u16", "u32", "u64", "i8", "i16", "i32", "i64", "usize"];
     for (const w of widths) {
       const signed = w.startsWith("i");
       const ranges: [bigint, bigint][] = signed
         ? [
             [-7n, 7n],
+            // The full signed range has a length above i64::MAX: out of the
+            // reference's domain (overflow), a RangeError here.
             [I_MIN[w as keyof typeof I_MIN], I_MAX[w as keyof typeof I_MAX]],
           ]
         : [
@@ -248,7 +285,7 @@ function* counterRecipes(): Generator<Recipe> {
  * these as `js-only`; the vectors record the `RangeError` each one raises.
  */
 function* domainRecipes(): Generator<Recipe> {
-  const bounds: ["u8" | "u16" | "u32" | "u64", string][] = [
+  const bounds: [BoundWidth, string][] = [
     ["u8", "256"],
     ["u8", "300"],
     ["u16", "65536"],
@@ -256,6 +293,10 @@ function* domainRecipes(): Generator<Recipe> {
     ["u32", "-1"],
     ["u64", "18446744073709551616"],
     ["u64", "-1"],
+    // usize above 2^53 - 1 is representable in the reference but not exactly
+    // in a `number`; the bigint samplers take it.
+    ["usize", "9007199254740992"],
+    ["usize", "-1"],
   ];
   for (const [w, b] of bounds) {
     yield {
@@ -275,6 +316,8 @@ function* domainRecipes(): Generator<Recipe> {
     ["u8", "0", "256", true],
     ["i8", "-129", "0", true],
     ["u64", "0", "18446744073709551616", true],
+    ["usize", "0", "9007199254740992", false],
+    ["usize", "1", "9007199254740992", true],
   ];
   for (const [w, s, e, closed] of ranges) {
     yield {

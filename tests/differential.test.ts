@@ -10,7 +10,13 @@ import { fileURLToPath } from "node:url";
 import * as baselineMod from "./baseline/rand-baseline.mjs";
 import * as src from "../src";
 import * as samplers from "../src/samplers";
-import { materialize, baselineAdapterFor, currentAdapter, type Recipe } from "./vectors/recipes";
+import {
+  materialize,
+  baselineAdapterFor,
+  currentAdapter,
+  noBaseline,
+  type Recipe,
+} from "./vectors/recipes";
 import { categories } from "./corpus/corpus";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -36,6 +42,22 @@ const TOMBSTONES: { id: string; landed: boolean; matches: (r: Recipe) => boolean
     id: "zero-seed",
     landed: true,
     matches: (r) => r.name.startsWith("seed/zero/"),
+  },
+  {
+    // A signed range whose length exceeds the width's MAX overflows
+    // `end - start` in the reference (a panic when checked); the tree rejects
+    // it with RangeError where the baseline reproduced the unchecked wrap and
+    // sampled a wrong range (`-128..=127` for i8 gave only -128 and -127).
+    id: "signed-range-length",
+    landed: true,
+    matches: (r) =>
+      r.ops.some((op) => {
+        if (op.op !== "range" || !op.w.startsWith("i")) return false;
+        const max = { i8: 127n, i16: 32767n, i32: 2147483647n, i64: (1n << 63n) - 1n }[
+          op.w as "i8" | "i16" | "i32" | "i64"
+        ];
+        return BigInt(op.e) - BigInt(op.s) > max;
+      }),
   },
   {
     // i64 range samplers with a negative start return out-of-range values in
@@ -65,6 +87,7 @@ describe("differential: baseline vs working tree", () => {
       const landedHits = new Map<string, number>();
       const landedMatches = new Map<string, number>();
       for (const recipe of gen()) {
+        if (noBaseline(recipe)) continue;
         n++;
         // Error MESSAGES may change across the redesign; error CLASS may not.
         const norm = (o: { out: string[]; state: string[] }) => ({

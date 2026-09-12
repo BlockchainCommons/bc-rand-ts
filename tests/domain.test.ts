@@ -49,6 +49,7 @@ describe("WIDTH", () => {
     expect(WIDTH.i8).toEqual({ min: -128, max: 127 });
     expect(WIDTH.i16).toEqual({ min: -32768, max: 32767 });
     expect(WIDTH.i32).toEqual({ min: -2147483648, max: 2147483647 });
+    expect(WIDTH.usize).toEqual({ min: 0, max: 9007199254740991 });
     expect(I64_MAX - I64_MIN).toBe(U64_MAX);
   });
 });

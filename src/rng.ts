@@ -28,6 +28,16 @@ export interface RandomNumberGenerator {
    * that equality holds; the package's generators do.
    */
   nextU64Low32?(): number;
+  /**
+   * Fills `dest` from the generator's *packed* byte stream — `rand_core`'s
+   * `fill_bytes` layout: eight little-endian bytes per 64-bit draw, a tail of
+   * five to seven bytes from one more draw, a tail of one to four bytes from
+   * the generator's own 32-bit draw. Only a generator whose `fillBytes` is a
+   * different stream needs to implement it ({@link SeededRng} does: its
+   * `fillBytes` is the reference's `fill_random_data`, one draw per byte);
+   * absent, the two streams are the same and callers use `fillBytes`.
+   */
+  fillBytesPacked?(dest: Uint8Array): void;
 }
 
 /** Options for the helpers that draw from a generator. */

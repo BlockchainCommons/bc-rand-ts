@@ -51,6 +51,19 @@ function splitMix64Of(seed: bigint): Seed {
   return words as unknown as Seed;
 }
 
+/** Four little-endian bytes of `value` at `offset`. */
+function writeU32(dest: Uint8Array, offset: number, value: number): void {
+  dest[offset] = value & 0xff;
+  dest[offset + 1] = (value >>> 8) & 0xff;
+  dest[offset + 2] = (value >>> 16) & 0xff;
+  dest[offset + 3] = value >>> 24;
+}
+
+/** The first `count` (1–4) little-endian bytes of `value` at `offset`. */
+function writeTail(dest: Uint8Array, offset: number, value: number, count: number): void {
+  for (let k = 0; k < count; k++) dest[offset + k] = (value >>> (8 * k)) & 0xff;
+}
+
 /**
  * A deterministic generator (xoshiro256**), identical to `rand_xoshiro`'s
  * `Xoshiro256StarStar` for the same seed.
@@ -121,6 +134,35 @@ export class SeededRng implements RandomNumberGenerator {
   fillBytes(dest: Uint8Array): void {
     for (let i = 0; i < dest.length; i++) {
       dest[i] = this.core.nextByte();
+    }
+  }
+
+  /**
+   * The reference's `RngCore::fill_bytes` stream (`rand_core`'s
+   * `fill_bytes_via_next` over xoshiro256**): eight little-endian bytes per
+   * 64-bit step; a tail of five to seven bytes from one more step; a tail of
+   * one to four bytes from xoshiro's own `next_u32`, the *high* half of a
+   * step. This is what reference code reaching the generator through
+   * `rand_core` generics draws (e.g. `bc-crypto`'s Ed25519 key generation);
+   * {@link SeededRng.fillBytes} is the other stream, `fill_random_data`.
+   */
+  fillBytesPacked(dest: Uint8Array): void {
+    const core = this.core;
+    const n = dest.length;
+    let i = 0;
+    for (; i + 8 <= n; i += 8) {
+      core.step();
+      writeU32(dest, i, core.outLo);
+      writeU32(dest, i + 4, core.outHi);
+    }
+    const left = n - i;
+    if (left > 4) {
+      core.step();
+      writeU32(dest, i, core.outLo);
+      writeTail(dest, i + 4, core.outHi, left - 4);
+    } else if (left > 0) {
+      core.step();
+      writeTail(dest, i, core.outHi, left);
     }
   }
 }

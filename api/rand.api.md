@@ -16,6 +16,7 @@ export function randomBytes(size: number, options?: RngOptions): Uint8Array<Arra
 // @public
 export interface RandomNumberGenerator {
     fillBytes(dest: Uint8Array): void;
+    fillBytesPacked?(dest: Uint8Array): void;
     nextU32(): number;
     nextU64(): bigint;
     nextU64Low32?(): number;
@@ -47,6 +48,7 @@ export class SeededRng implements RandomNumberGenerator {
     constructor(seed: Seed | Uint8Array);
     clone(): SeededRng;
     fillBytes(dest: Uint8Array): void;
+    fillBytesPacked(dest: Uint8Array): void;
     static forTesting(): SeededRng;
     nextU32(): number;
     nextU64(): bigint;

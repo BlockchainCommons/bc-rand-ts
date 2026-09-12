@@ -1,7 +1,7 @@
 /**
  * Golden vector generator.
  *
- *   bun scripts/generate-vectors.mjs
+ *   bun scripts/generate-vectors.ts
  *
  * Materialises the golden recipe subset with the WORKING TREE and writes
  * tests/vectors/vectors.json. Regenerating is a deliberate act; the diff is
@@ -22,5 +22,8 @@ const vectors = [];
 for (const recipe of goldenRecipes()) {
   vectors.push({ ...recipe, expect: materialize(api, recipe) });
 }
-writeFileSync(join(root, "tests/vectors/vectors.json"), JSON.stringify({ count: vectors.length, vectors }, null, 1) + "\n");
+writeFileSync(
+  join(root, "tests/vectors/vectors.json"),
+  JSON.stringify({ count: vectors.length, vectors }, null, 1) + "\n",
+);
 console.log(`wrote ${vectors.length} vectors`);

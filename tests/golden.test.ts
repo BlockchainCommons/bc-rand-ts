@@ -8,7 +8,6 @@
 import * as rand from "../src";
 import * as samplers from "../src/samplers";
 import * as widening from "../src/widening";
-import * as magnitude from "../src/magnitude";
 
 const SEEDS: [string, [bigint, bigint, bigint, bigint]][] = [
   [
@@ -167,18 +166,36 @@ describe("golden: samplers (consumption pattern)", () => {
       expect(out).toMatchSnapshot();
     });
   }
-  it("full-range signed early return throws on overflow (consumption pinned)", () => {
-    // i8 full range: draws raw nextU64; throws when > 127. Record outcome sequence.
+  it("signed ranges longer than the width's MAX are rejected before any draw", () => {
+    // The reference's `end - start` overflows for these (a panic when
+    // checked); the port throws RangeError and leaves the generator untouched.
     const rng = new rand.SeededRng(SEEDS[0][1]);
-    const outcomes: string[] = [];
-    for (let i = 0; i < 8; i++) {
+    const first = new rand.SeededRng(SEEDS[0][1]).nextU64();
+    const outcome = (f: () => unknown): string => {
       try {
-        outcomes.push(String(samplers.nextInRangeI8(rng, -128, 127)));
+        return String(f());
       } catch (e) {
-        outcomes.push(`throw:${(e as Error).message}`);
+        return `throw:${(e as Error).message}`;
       }
-    }
-    expect(outcomes).toMatchSnapshot();
+    };
+    expect({
+      "nextInRangeI8(-128, 127)": outcome(() => samplers.nextInRangeI8(rng, -128, 127)),
+      "nextInClosedRangeI8(-128, 127)": outcome(() => samplers.nextInClosedRangeI8(rng, -128, 127)),
+      "nextInClosedRangeI8(-1, 127)": outcome(() => samplers.nextInClosedRangeI8(rng, -1, 127)),
+      "nextInClosedRangeI16(-32768, 32767)": outcome(() =>
+        samplers.nextInClosedRangeI16(rng, -32768, 32767),
+      ),
+      "nextInRangeI32(-128, 2147483647)": outcome(() =>
+        samplers.nextInRangeI32(rng, -128, 2147483647),
+      ),
+      "nextInClosedRangeI64(-7n, i64::MAX)": outcome(() =>
+        samplers.nextInClosedRangeI64(rng, -7n, 9223372036854775807n),
+      ),
+      "nextInRangeI64(i64::MIN, 0n)": outcome(() =>
+        samplers.nextInRangeI64(rng, -9223372036854775808n, 0n),
+      ),
+    }).toMatchSnapshot();
+    expect(rng.nextU64()).toBe(first);
   });
 });
 
@@ -190,18 +207,6 @@ describe("golden: pure helpers", () => {
       widening.wideMulU32(4294967295, 4294967295).map(String),
       widening.wideMulU64(0xffffffffffffffffn, 0xffffffffffffffffn).map(String),
       widening.wideMul(123456789n, 987654321n, 40).map(String),
-    ]).toMatchSnapshot();
-  });
-  it("magnitude", () => {
-    expect([
-      magnitude.toMagnitude(-128, 8),
-      magnitude.toMagnitude(-1, 16),
-      magnitude.toMagnitude(-2147483648, 32),
-      magnitude.toMagnitude64(-9223372036854775808n).toString(),
-      magnitude.fromMagnitude(128, 8),
-      magnitude.fromMagnitude(65535, 16),
-      magnitude.fromMagnitude(2147483648, 32),
-      magnitude.fromMagnitude64(0x8000000000000000n).toString(),
     ]).toMatchSnapshot();
   });
   it("secure rng shape", () => {
@@ -279,4 +284,46 @@ describe("golden: freeze additions", () => {
       for (let i = 0; i < 16; i++) expect(BigInt(a.nextU32())).toBe(b.nextU64() & 0xffffffffn);
     }
   });
+});
+
+describe("golden: usize samplers and the packed byte stream (1.0.0-beta.2)", () => {
+  for (const [name, seed] of SEEDS.slice(0, 2)) {
+    it(`usize samplers (${name})`, () => {
+      const rng = new rand.SeededRng(seed);
+      expect({
+        bound: [1, 2, 7, 4294967296, 9007199254740991].map((b) =>
+          Array.from({ length: 4 }, () => samplers.nextWithUpperBoundUsize(rng, b)),
+        ),
+        range: (
+          [
+            [0, 1],
+            [8, 32],
+            [4294967295, 4294967297],
+            [0, 9007199254740991],
+          ] as [number, number][]
+        ).map(([s, e]) => Array.from({ length: 4 }, () => samplers.nextInRangeUsize(rng, s, e))),
+        closed: (
+          [
+            [8, 32],
+            [3, 3],
+            [0, 9007199254740991],
+          ] as [number, number][]
+        ).map(([s, e]) =>
+          Array.from({ length: 4 }, () => samplers.nextInClosedRangeUsize(rng, s, e)),
+        ),
+        state: rng.nextU64().toString(),
+      }).toMatchSnapshot();
+    });
+    it(`fillBytesPacked (${name})`, () => {
+      const rng = new rand.SeededRng(seed);
+      const take = (n: number): string => {
+        const b = new Uint8Array(n);
+        rng.fillBytesPacked(b);
+        return hex(b);
+      };
+      expect(
+        [32, 11, 3, 0, 1, 4, 5, 7, 8].map(take).concat(rng.nextU64().toString()),
+      ).toMatchSnapshot();
+    });
+  }
 });

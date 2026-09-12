@@ -1,12 +1,11 @@
 /**
- * Property tests: every sampler stays inside its bound/range; magnitude and
- * wide multiplication round-trip.
+ * Property tests: every sampler stays inside its bound/range; wide
+ * multiplication round-trips.
  */
 import fc from "fast-check";
 import * as rand from "../src";
 import * as samplers from "../src/samplers";
 import * as widening from "../src/widening";
-import * as magnitude from "../src/magnitude";
 
 const u64 = fc.bigInt({ min: 0n, max: (1n << 64n) - 1n });
 // The all-zero seed is a fixed point of xoshiro256** (every output is 0), so a
@@ -54,7 +53,8 @@ describe("samplers stay in bounds", () => {
       fc.property(
         seedArb,
         fc.integer({ min: -128, max: 126 }),
-        fc.integer({ min: 1, max: 255 }),
+        // The length must fit i8 (the reference's arithmetic); longer ones throw, below.
+        fc.integer({ min: 1, max: 127 }),
         (s, lo, d) => {
           const hi = Math.min(127, lo + d);
           if (hi <= lo) return true;
@@ -100,27 +100,69 @@ describe("samplers stay in bounds", () => {
     const v = samplers.nextInClosedRangeI64(rngFor([0n, 0n, 0n, 1n]), -1n, 0n);
     expect(v >= -1n && v <= 0n).toBe(true);
   });
+  it("signed ranges longer than the width's MAX throw; shorter ones sample in range", () => {
+    fc.assert(
+      fc.property(
+        seedArb,
+        fc.integer({ min: -128, max: 127 }),
+        fc.integer({ min: -128, max: 127 }),
+        (s, a, b) => {
+          const lo = Math.min(a, b),
+            hi = Math.max(a, b);
+          if (hi - lo > 127) {
+            expect(() => samplers.nextInClosedRangeI8(rngFor(s), lo, hi)).toThrow(RangeError);
+            return true;
+          }
+          const v = samplers.nextInClosedRangeI8(rngFor(s), lo, hi);
+          return v >= lo && v <= hi;
+        },
+      ),
+      { numRuns: 400 },
+    );
+    fc.assert(
+      fc.property(
+        seedArb,
+        fc.bigInt({ min: -(1n << 63n), max: (1n << 63n) - 1n }),
+        fc.bigInt({ min: -(1n << 63n), max: (1n << 63n) - 1n }),
+        (s, a, b) => {
+          const lo = a < b ? a : b,
+            hi = a < b ? b : a;
+          if (hi - lo > (1n << 63n) - 1n) {
+            expect(() => samplers.nextInClosedRangeI64(rngFor(s), lo, hi)).toThrow(RangeError);
+            return true;
+          }
+          const v = samplers.nextInClosedRangeI64(rngFor(s), lo, hi);
+          return v >= lo && v <= hi;
+        },
+      ),
+      { numRuns: 400 },
+    );
+  });
+  it("usize samplers stay in range and equal the u64 samplers", () => {
+    const safe = fc.integer({ min: 0, max: Number.MAX_SAFE_INTEGER });
+    fc.assert(
+      fc.property(seedArb, safe, safe, (s, a, b) => {
+        const lo = Math.min(a, b),
+          hi = Math.max(a, b);
+        const v = samplers.nextInClosedRangeUsize(rngFor(s), lo, hi);
+        const w = Number(samplers.nextInClosedRangeU64(rngFor(s), BigInt(lo), BigInt(hi)));
+        return v >= lo && v <= hi && v === w;
+      }),
+      { numRuns: 300 },
+    );
+    fc.assert(
+      fc.property(seedArb, fc.integer({ min: 1, max: Number.MAX_SAFE_INTEGER }), (s, b) => {
+        const v = samplers.nextWithUpperBoundUsize(rngFor(s), b);
+        return (
+          v >= 0 && v < b && v === Number(samplers.nextWithUpperBoundU64(rngFor(s), BigInt(b)))
+        );
+      }),
+      { numRuns: 300 },
+    );
+  });
 });
 
 describe("helpers round-trip", () => {
-  it("magnitude", () => {
-    fc.assert(
-      fc.property(
-        fc.integer({ min: -127, max: 127 }),
-        (x) =>
-          magnitude.fromMagnitude(magnitude.toMagnitude(x, 8), 8) ===
-            Math.abs(x) * (x < 0 ? -1 : 1) || true,
-      ),
-    );
-    fc.assert(
-      fc.property(
-        fc.bigInt({ min: -(1n << 63n), max: (1n << 63n) - 1n }),
-        (x) =>
-          magnitude.fromMagnitude64(magnitude.toMagnitude64(x)) === (x < 0n ? -x : x) ||
-          x === -(1n << 63n),
-      ),
-    );
-  });
   it("wideMulU64 reassembles", () => {
     fc.assert(
       fc.property(
