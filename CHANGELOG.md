@@ -40,7 +40,7 @@ Closes every recorded behavioral divergence from `bc-rand` 0.5.0.
 ### Removed
 
 - The internal `magnitude` helpers (`toMagnitude`, `fromMagnitude`, …): with
-  the length check in place every signed length is its own magnitude.
+  the length check in place, every signed length is its own magnitude.
 
 ### Internal
 
@@ -51,7 +51,6 @@ Closes every recorded behavioral divergence from `bc-rand` 0.5.0.
   `usize` and `bytesPacked` operations, 483 vectors (420 before; of the 420,
   the 33 signed-overflow recipes now record the throw and the two counter/raw
   recipes gained the packed operation; the other 385 are byte-identical).
-- ADRs 0001–0006 are tracked in `docs/adr`; typedoc writes to `docs/api`.
 
 ## 1.0.0-beta.1
 
