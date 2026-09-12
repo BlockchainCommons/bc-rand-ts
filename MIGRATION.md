@@ -1,13 +1,6 @@
 # Migrating from `@bcts/rand` to `@blockchaincommons/rand`
 
-`@blockchaincommons/rand` is the redesigned successor to `@bcts/rand`: the same
-generators and samplers, rebuilt as an idiomatic TypeScript library. **Every
-seeded output is byte-identical** except for two bug fixes (section 2), proven
-by 420 committed vectors, a differential corpus against the frozen pre-redesign
-bundle, and cross-validation against `bc-rand` 0.5.0. It is also substantially
-faster: the seeded generator runs on 32-bit integer arithmetic, so `nextU32`,
-`fillBytes`, `randomBytes` and the 8/16/32-bit samplers never allocate a
-`bigint` (2× to 10× faster).
+`@blockchaincommons/rand` is the redesigned successor to `@bcts/rand`.
 
 ## TL;DR checklist
 
