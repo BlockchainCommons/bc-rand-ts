@@ -1,7 +1,6 @@
 //#region src/widening.d.ts
 /**
  * Copyright © 2023-2026 Blockchain Commons, LLC
- * Copyright © 2025-2026 Parity Technologies
  *
  */
 /**
@@ -49,7 +48,6 @@ declare function wideMulU64(a: bigint, b: bigint): [bigint, bigint];
 //#region src/magnitude.d.ts
 /**
  * Copyright © 2023-2026 Blockchain Commons, LLC
- * Copyright © 2025-2026 Parity Technologies
  *
  */
 /**

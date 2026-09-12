@@ -4,7 +4,7 @@
     "src/index.ts",
     "src/samplers.ts"
   ],
-  "out": "docs/api",
+  "out": "docs",
   "name": "@blockchaincommons/rand",
   "includeVersion": true,
   "readme": "README.md",
