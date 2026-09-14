@@ -1,10 +1,9 @@
 # Changelog
 
-## Unreleased
+## 1.0.0-beta.3 - 2026-09-14
 
-Adds the package's error type and the raw-state restore, and closes the
-divergences listed below. Seeded streams and every vector that existed before
-are byte-identical; the harness stays at `0 MISMATCH`.
+Adds the package's error type and the raw-state restore and closes the
+divergences listed below.
 
 ### Fixed
 
@@ -54,7 +53,7 @@ are byte-identical; the harness stays at `0 MISMATCH`.
   `is(code)`, `RandError.isRandError`, static factories, no public
   constructor). Codes: `InvalidArgument`, `EmptyRange`,
   `RangeTooLong`, `ValueDoesNotFit`, `InvalidSeed`, `InvalidGenerator`,
-  `CryptoUnavailable`. Where an error already existed its message is unchanged
+  `CryptoUnavailable`. Where an error already existed, its message is unchanged
   byte for byte. The factories are public so that a consumer calling a member
   this package does not (bc-crypto's `fillBytesPacked`) reports the same error.
 - `SeededRng.fromState(state)`: the generator whose state is exactly the 32
@@ -62,7 +61,7 @@ are byte-identical; the harness stays at `0 MISMATCH`.
   provenance-mark's `Xoshiro256StarStar::from_data` (bc-rand has no raw-state
   constructor); an all-zero state draws zeros forever, as there. `clone()` uses
   it. The constructor stays `from_seed` and substitutes an all-zero seed.
-- `bun run vectors:full`: materialises the whole recipe corpus (3,150 vectors)
+- `bun run vectors:full`: materializes the whole recipe corpus (3,150 vectors)
   to a temp file for the Rust harness; CI replays it together with the golden
   file.
 
@@ -74,32 +73,7 @@ are byte-identical; the harness stays at `0 MISMATCH`.
 - `BigUint64Array` seeds are rejected (`InvalidSeed`); pass `Array.from(words)`
   or the 32 bytes.
 
-### Corrections to the 1.0.0-beta.2 entry
-
-- The range-length message is `"range length must be an integer in [0, MAX],
-  got …"` for closed ranges and `[1, MAX]` for half-open ones.
-- The packed stream (`fillBytesPacked`) has three parts: eight little-endian
-  bytes per 64-bit step, a tail of five to seven bytes from one more step, and
-  a tail of one to four bytes from the *high* half of one more step
-  (`rand_xoshiro`'s own `next_u32`), not `nextU32()`.
-- `WIDTH.usize` is internal (`src/domain.ts`), not a public addition.
-
-### Internal
-
-- Rust harness: seed-domain inputs (another word count, a word outside `u64`,
-  a byte seed that is not 32 bytes or not hex) are classified `js-only`
-  instead of aborting the run; seven `domain/seed/*` golden vectors added
-  (`490 vectors - 462 match, 28 js-only, 0 MISMATCH`; every earlier vector is
-  byte-identical); the full corpus replays at `3150 vectors - 3122 match, 28
-  js-only, 0 MISMATCH`. Both runs, plus an informational run on Cargo's
-  unchecked release profile that documents D1 (`33 MISMATCH`, the signed
-  range-length vectors), are the `rust-validation` CI job.
-- Size budget: the root entry's limit is 3 kB (2.35 kB measured, brotlied: the
-  error class and the contract checks); the samplers' stays 2 kB (1.66 kB).
-- `RUST_DIVERGENCES.md` records the two divergences: D1 (signed range length,
-  release-profile wrap) and D2 (`usize` above `2^53 - 1`).
-
-## 1.0.0-beta.2
+## 1.0.0-beta.2 - 2026-09-12
 
 Closes every recorded behavioral divergence from `bc-rand` 0.5.0.
 
@@ -151,6 +125,6 @@ Closes every recorded behavioral divergence from `bc-rand` 0.5.0.
   the 33 signed-overflow recipes now record the throw and the two counter/raw
   recipes gained the packed operation; the other 385 are byte-identical).
 
-## 1.0.0-beta.1
+## 1.0.0-beta.1 - 2026-09-12
 
 Initial beta implementation.

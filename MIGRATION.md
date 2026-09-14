@@ -162,14 +162,3 @@ Test with `RandError.isRandError(e)` (works across package copies) and
 | new | every seed that is not an array of exactly four `bigint`s in `[0, 2^64 - 1]` or a `Uint8Array` of exactly 32 bytes throws `RandError` `InvalidSeed`: another length, a hole, a `number` word, a word outside `u64`, a string, an `ArrayBuffer`, a `DataView`, a typed array other than `Uint8Array` (including `BigUint64Array`, which 1.0.0-beta.2 accepted); a state that is not 32 bytes likewise |
 | new | `TEST_SEED` is frozen |
 | `new SecureRandomNumberGenerator()` | `new SecureRng()` or `secureRng()` |
-
-## 5. What did not change
-
-Every seeded `nextU64`/`nextU32`/`fillBytes` sequence; the one-draw-per-byte
-fill rule; every sampler over the package's own generators for arguments
-inside the width, ordered, and (for signed ranges) no longer than the width's
-`MAX` — the three exceptions are §2 (`i64` ranges with a negative start) and
-§3 (validated arguments; signed range lengths); the full-range early-return
-branches; the value of `TEST_SEED`. Parity with the Rust reference is recorded
-in [`RUST_DIVERGENCES.md`](./RUST_DIVERGENCES.md) and by the
-[Rust cross-validation harness](./tests/rust-validation/README.md).
