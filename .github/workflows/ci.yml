@@ -71,17 +71,11 @@ jobs:
         with:
           bun-version: latest
 
-      # The whole corpus (tests/corpus/corpus.ts `allRecipes()`), of which the
-      # committed golden file is a stride, materialised from the working tree.
-      # It is never committed; the reference replays it below.
+      # The whole corpus (tests/corpus/corpus.ts `allRecipes()`)
       - name: Materialise the full corpus
         run: bun scripts/generate-vectors.ts --full "${{ runner.temp }}/rand-full-corpus.json"
 
-      # The runner image ships a stable Rust toolchain; the crate graph is
-      # small enough to build from scratch (no cache step to pin). The
-      # release profile has overflow-checks = true (Cargo.toml): the
-      # reference's signed range-length overflow is a panic, one outcome
-      # class with the port's throw.
+      # The runner image ships a stable Rust toolchain
       - name: Validate the golden vectors against bc-rand
         working-directory: tests/rust-validation
         run: cargo run --release --locked -- ../vectors/vectors.json
@@ -90,10 +84,7 @@ jobs:
         working-directory: tests/rust-validation
         run: cargo run --release --locked -- "${{ runner.temp }}/rand-full-corpus.json"
 
-      # Informational, never blocking: Cargo's default release profile (no
-      # overflow checks) wraps `end - start` and samples a wrong range, so the
-      # 33 signed range-length vectors MISMATCH here. That is D1 in
-      # RUST_DIVERGENCES.md, and this run is its executed record.
+      # Informational, never blocking
       - name: Document D1 (unchecked release profile, expected MISMATCHes)
         working-directory: tests/rust-validation
         continue-on-error: true
