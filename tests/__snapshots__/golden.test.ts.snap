@@ -4,30 +4,30 @@ exports[`golden: freeze additions > all-zero seed: the reference's seed_from_u64
 
 exports[`golden: freeze additions > all-zero seed: the reference's seed_from_u64(0) substitution 2`] = `"11091344671253066420"`;
 
-exports[`golden: freeze additions > byte seed equals word seed: 32 little-endian bytes, four u64 words 1`] = `"throw:RangeError:seed byte length must be an integer in [32, 32], got 31"`;
+exports[`golden: freeze additions > byte seed equals word seed: 32 little-endian bytes, four u64 words 1`] = `"throw:RandError:seed byte length must be an integer in [32, 32], got 31"`;
 
-exports[`golden: freeze additions > out-of-width and non-integer arguments: every one a RangeError 1`] = `
+exports[`golden: freeze additions > out-of-width and non-integer arguments: every one a RandError 1`] = `
 {
-  "SeededRng([2^64, 1, 1, 1])": "throw:RangeError:seed[0] must be an integer in [0, 18446744073709551615], got 18446744073709551616",
-  "nextInClosedRangeI8(-129, 0)": "throw:RangeError:start must be an integer in [-128, 127], got -129",
-  "nextInClosedRangeU32(0.5, 2)": "throw:RangeError:start must be an integer in [0, 4294967295], got 0.5",
-  "nextInClosedRangeU64(0n, 2^64)": "throw:RangeError:end must be an integer in [0, 18446744073709551615], got 18446744073709551616",
-  "nextInClosedRangeU8(0, 256)": "throw:RangeError:end must be an integer in [0, 255], got 256",
-  "nextInRangeI16(-40000, 5)": "throw:RangeError:start must be an integer in [-32768, 32767], got -40000",
-  "nextInRangeI32(0, 2^32)": "throw:RangeError:end must be an integer in [-2147483648, 2147483647], got 4294967296",
-  "nextInRangeI64(-2^64, 0n)": "throw:RangeError:start must be an integer in [-9223372036854775808, 9223372036854775807], got -18446744073709551616",
-  "nextInRangeI8(-200, 5)": "throw:RangeError:start must be an integer in [-128, 127], got -200",
-  "nextInRangeU64(-1n, 5n)": "throw:RangeError:start must be an integer in [0, 18446744073709551615], got -1",
-  "nextInRangeU8(0, 1e9)": "throw:RangeError:end must be an integer in [0, 255], got 1000000000",
-  "nextInRangeU8(0, 256)": "throw:RangeError:end must be an integer in [0, 255], got 256",
-  "nextWithUpperBoundU16(65536)": "throw:RangeError:upperBound must be an integer in [1, 65535], got 65536",
-  "nextWithUpperBoundU32(-1)": "throw:RangeError:upperBound must be an integer in [1, 4294967295], got -1",
-  "nextWithUpperBoundU32(1.5)": "throw:RangeError:upperBound must be an integer in [1, 4294967295], got 1.5",
-  "nextWithUpperBoundU32(2^32)": "throw:RangeError:upperBound must be an integer in [1, 4294967295], got 4294967296",
-  "nextWithUpperBoundU64(-1n)": "throw:RangeError:upperBound must be an integer in [1, 18446744073709551615], got -1",
-  "nextWithUpperBoundU64(2^64)": "throw:RangeError:upperBound must be an integer in [1, 18446744073709551615], got 18446744073709551616",
-  "nextWithUpperBoundU8(256)": "throw:RangeError:upperBound must be an integer in [1, 255], got 256",
-  "randomBytes(1.5)": "throw:RangeError:size must be an integer in [0, 9007199254740991], got 1.5",
+  "SeededRng([2^64, 1, 1, 1])": "throw:RandError:seed[0] must be an integer in [0, 18446744073709551615], got 18446744073709551616",
+  "nextInClosedRangeI8(-129, 0)": "throw:RandError:start must be an integer in [-128, 127], got -129",
+  "nextInClosedRangeU32(0.5, 2)": "throw:RandError:start must be an integer in [0, 4294967295], got 0.5",
+  "nextInClosedRangeU64(0n, 2^64)": "throw:RandError:end must be an integer in [0, 18446744073709551615], got 18446744073709551616",
+  "nextInClosedRangeU8(0, 256)": "throw:RandError:end must be an integer in [0, 255], got 256",
+  "nextInRangeI16(-40000, 5)": "throw:RandError:start must be an integer in [-32768, 32767], got -40000",
+  "nextInRangeI32(0, 2^32)": "throw:RandError:end must be an integer in [-2147483648, 2147483647], got 4294967296",
+  "nextInRangeI64(-2^64, 0n)": "throw:RandError:start must be an integer in [-9223372036854775808, 9223372036854775807], got -18446744073709551616",
+  "nextInRangeI8(-200, 5)": "throw:RandError:start must be an integer in [-128, 127], got -200",
+  "nextInRangeU64(-1n, 5n)": "throw:RandError:start must be an integer in [0, 18446744073709551615], got -1",
+  "nextInRangeU8(0, 1e9)": "throw:RandError:end must be an integer in [0, 255], got 1000000000",
+  "nextInRangeU8(0, 256)": "throw:RandError:end must be an integer in [0, 255], got 256",
+  "nextWithUpperBoundU16(65536)": "throw:RandError:upperBound must be an integer in [1, 65535], got 65536",
+  "nextWithUpperBoundU32(-1)": "throw:RandError:upperBound must be an integer in [1, 4294967295], got -1",
+  "nextWithUpperBoundU32(1.5)": "throw:RandError:upperBound must be an integer in [1, 4294967295], got 1.5",
+  "nextWithUpperBoundU32(2^32)": "throw:RandError:upperBound must be an integer in [1, 4294967295], got 4294967296",
+  "nextWithUpperBoundU64(-1n)": "throw:RandError:upperBound must be an integer in [1, 18446744073709551615], got -1",
+  "nextWithUpperBoundU64(2^64)": "throw:RandError:upperBound must be an integer in [1, 18446744073709551615], got 18446744073709551616",
+  "nextWithUpperBoundU8(256)": "throw:RandError:upperBound must be an integer in [1, 255], got 256",
+  "randomBytes(1.5)": "throw:RandError:size must be an integer in [0, 9007199254740991], got 1.5",
 }
 `;
 

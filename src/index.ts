@@ -9,10 +9,20 @@
  *   shared cross-platform fixture seed; `state` and `clone()` persist and fork it.
  * - {@link randomBytes}, {@link fillRandomBytes}, {@link randomBool}: helpers
  *   taking `{ rng }` and defaulting to the secure generator.
+ * - {@link RandError}: the one error type, with a `code` for every failure.
  * - Bounded and ranged integer samplers live in `@blockchaincommons/rand/samplers`.
  *
  * @module @blockchaincommons/rand
  */
+export {
+  RandError,
+  type RandErrorCode,
+  type RandErrorDetails,
+  type RandParameter,
+  type RandSeedParameter,
+  type RandGeneratorMethod,
+  type RandBounds,
+} from "./error.js";
 export { type RandomNumberGenerator, type RngOptions } from "./rng.js";
 export { SecureRng, secureRng } from "./secure-rng.js";
 export { SeededRng, TEST_SEED, type Seed } from "./seeded-rng.js";

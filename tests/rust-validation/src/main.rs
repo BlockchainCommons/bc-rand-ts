@@ -2,10 +2,13 @@
 //!
 //!   cargo run --release -- ../vectors/vectors.json
 //!
-//! Exit 0 iff every vector matches or is JS-only (an input the reference's
-//! integer types cannot express, or a `usize` above 2^53 - 1 that a `number`
-//! cannot hold). There is no expected-divergence allowlist: every outcome
-//! the reference produces, the port produces.
+//! Exit 0 iff every vector matches or is JS-only: an input the reference's
+//! types cannot express (an integer outside a sampler's width, a seed that is
+//! not four `u64` words or 32 bytes), or a `usize` above 2^53 - 1 that a
+//! `number` cannot hold exactly. There is no expected-divergence allowlist:
+//! every outcome the reference produces, the port produces. A vector field
+//! the reference cannot receive is classified, never `unwrap`ped: the harness
+//! must not panic or abort on any recipe.
 //! Throws are compared by class, not message: any `throw:…` on either side
 //! is one outcome, `throw`.
 use bc_rand::{
@@ -31,9 +34,10 @@ struct Vector {
 #[derive(Deserialize)]
 #[serde(tag = "kind")]
 enum Generator {
-    /// The package's seeded generator from four u64 words (decimal).
+    /// The package's seeded generator from four u64 words (decimal). Any
+    /// other arity, or a word outside `u64`, is a JS-only seed shape.
     #[serde(rename = "seeded")]
-    Seeded { words: [String; 4] },
+    Seeded { words: Vec<String> },
     /// The package's seeded generator from 32 bytes (hex, little-endian u64 words).
     #[serde(rename = "seeded-bytes")]
     SeededBytes { bytes: String },
@@ -123,10 +127,14 @@ fn hex(b: &[u8]) -> String {
     b.iter().map(|x| format!("{x:02x}")).collect()
 }
 
-fn unhex(s: &str) -> Vec<u8> {
+/// `None` unless `s` is an even number of hex digits.
+fn unhex(s: &str) -> Option<Vec<u8>> {
+    if s.len() % 2 != 0 {
+        return None;
+    }
     (0..s.len())
         .step_by(2)
-        .map(|i| u8::from_str_radix(&s[i..i + 2], 16).unwrap())
+        .map(|i| u8::from_str_radix(&s[i..i + 2], 16).ok())
         .collect()
 }
 
@@ -209,21 +217,28 @@ fn run_with<R: RandomNumberGenerator>(rng: &mut R, v: &Vector) -> Option<Outcome
 fn run(v: &Vector) -> Option<Outcome> {
     match &v.gen {
         Generator::Counter { start } => run_with(&mut CounterRng { counter: *start }, v),
+        // `SeededRandomNumberGenerator::new` takes `[u64; 4]`: any other word
+        // count, or a word that is not a `u64`, is a seed shape only the port
+        // can receive (JS-only).
         Generator::Seeded { words } => {
-            let seed: [u64; 4] = [
-                words[0].parse().unwrap(),
-                words[1].parse().unwrap(),
-                words[2].parse().unwrap(),
-                words[3].parse().unwrap(),
-            ];
+            if words.len() != 4 {
+                return None;
+            }
+            let mut seed = [0u64; 4];
+            for (w, s) in seed.iter_mut().zip(words) {
+                *w = s.parse().ok()?;
+            }
             run_with(&mut SeededRandomNumberGenerator::new(seed), v)
         }
         // The byte form is `Xoshiro256StarStar::from_seed`'s layout: four
         // little-endian u64 words, which is what `SeededRandomNumberGenerator::new`
-        // writes back before calling `from_seed`.
+        // writes back before calling `from_seed`. Anything but 32 bytes is a
+        // seed shape only the port can receive (JS-only).
         Generator::SeededBytes { bytes } => {
-            let bytes = unhex(bytes);
-            assert_eq!(bytes.len(), 32, "{}: bytes must be 32 bytes", v.name);
+            let bytes = unhex(bytes)?;
+            if bytes.len() != 32 {
+                return None;
+            }
             let mut words = [0u64; 4];
             for (i, w) in words.iter_mut().enumerate() {
                 *w = u64::from_le_bytes(bytes[i * 8..(i + 1) * 8].try_into().unwrap());

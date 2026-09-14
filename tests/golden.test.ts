@@ -247,7 +247,7 @@ describe("golden: freeze additions", () => {
     expect(outcome(() => new rand.SeededRng(new Uint8Array(31)))).toMatchSnapshot();
   });
 
-  it("out-of-width and non-integer arguments: every one a RangeError", () => {
+  it("out-of-width and non-integer arguments: every one a RandError", () => {
     const r = (): rand.SeededRng => rand.SeededRng.forTesting();
     expect({
       "nextWithUpperBoundU32(2^32)": outcome(() => samplers.nextWithUpperBoundU32(r(), 4294967296)),

@@ -29,8 +29,9 @@ const BASELINE_SHA256 = "6548f8a20aab023597c495cebbfbc0f83204d63160523425973293e
 const TOMBSTONES: { id: string; landed: boolean; matches: (r: Recipe) => boolean }[] = [
   // Order matters: the first matching entry decides, so the narrow ones come first.
   {
-    // Out-of-width integers throw RangeError; the baseline masked them to
-    // the width and returned values outside the requested range.
+    // Out-of-width integers and malformed seeds throw RandError; the baseline
+    // masked the integers to the width and returned values outside the
+    // requested range, and accepted or crashed on the seeds.
     id: "domain-errors",
     landed: true,
     matches: (r) => r.name.startsWith("domain/"),
@@ -46,8 +47,9 @@ const TOMBSTONES: { id: string; landed: boolean; matches: (r: Recipe) => boolean
   {
     // A signed range whose length exceeds the width's MAX overflows
     // `end - start` in the reference (a panic when checked); the tree rejects
-    // it with RangeError where the baseline reproduced the unchecked wrap and
-    // sampled a wrong range (`-128..=127` for i8 gave only -128 and -127).
+    // it with RandError RangeTooLong where the baseline reproduced the
+    // unchecked wrap and sampled a wrong range (`-128..=127` for i8 gave only
+    // -128 and -127).
     id: "signed-range-length",
     landed: true,
     matches: (r) =>
@@ -89,7 +91,8 @@ describe("differential: baseline vs working tree", () => {
       for (const recipe of gen()) {
         if (noBaseline(recipe)) continue;
         n++;
-        // Error MESSAGES may change across the redesign; error CLASS may not.
+        // Error classes and messages may change across the redesign (recipes
+        // record the message only); whether an operation throws may not.
         const norm = (o: { out: string[]; state: string[] }) => ({
           out: o.out.map((x) => (x.startsWith("throw:") ? "throw" : x)),
           state: o.state,

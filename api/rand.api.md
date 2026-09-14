@@ -8,6 +8,66 @@
 export function fillRandomBytes(dest: Uint8Array, options?: RngOptions): void;
 
 // @public
+export interface RandBounds {
+    readonly max: number | bigint;
+    readonly min: number | bigint;
+}
+
+// @public
+export class RandError extends Error {
+    readonly code: RandErrorCode;
+    static cryptoUnavailable(): RandError;
+    readonly details: RandErrorDetails;
+    static emptyRange(start: number | bigint, end: number | bigint, closed: boolean): RandError;
+    static invalidArgument(parameter: RandParameter, value: unknown, bounds: RandBounds): RandError;
+    static invalidDest(parameter: RandParameter, value: unknown): RandError;
+    static invalidDraw(method: "nextU32" | "nextU64" | "nextU64Low32", value: unknown): RandError;
+    static invalidGenerator(method: RandGeneratorMethod, value: unknown): RandError;
+    static invalidSeed(parameter: RandSeedParameter, expected: string, value: unknown): RandError;
+    is(code: RandErrorCode): boolean;
+    static isRandError(value: unknown): value is RandError;
+    override readonly name = "RandError";
+    static rangeTooLong(length: number | bigint, max: number | bigint, closed: boolean): RandError;
+    static valueDoesNotFit(): RandError;
+}
+
+// @public
+export type RandErrorCode = "InvalidArgument" | "EmptyRange" | "RangeTooLong" | "ValueDoesNotFit" | "InvalidSeed" | "InvalidGenerator" | "CryptoUnavailable";
+
+// @public
+export type RandErrorDetails = {
+    readonly code: "InvalidArgument";
+    readonly parameter: RandParameter;
+    readonly value: unknown;
+    readonly bounds?: RandBounds;
+} | {
+    readonly code: "EmptyRange";
+    readonly start: number | bigint;
+    readonly end: number | bigint;
+    readonly closed: boolean;
+} | {
+    readonly code: "RangeTooLong";
+    readonly length: number | bigint;
+    readonly max: number | bigint;
+    readonly closed: boolean;
+} | {
+    readonly code: "ValueDoesNotFit";
+} | {
+    readonly code: "InvalidSeed";
+    readonly parameter: RandSeedParameter;
+    readonly value: unknown;
+} | {
+    readonly code: "InvalidGenerator";
+    readonly method: RandGeneratorMethod;
+    readonly value: unknown;
+} | {
+    readonly code: "CryptoUnavailable";
+};
+
+// @public
+export type RandGeneratorMethod = "fillBytes" | "fillBytesPacked" | "nextU32" | "nextU64" | "nextU64Low32";
+
+// @public
 export function randomBool(options?: RngOptions): boolean;
 
 // @public
@@ -21,6 +81,12 @@ export interface RandomNumberGenerator {
     nextU64(): bigint;
     nextU64Low32?(): number;
 }
+
+// @public
+export type RandParameter = "upperBound" | "start" | "end" | "size" | "dest";
+
+// @public
+export type RandSeedParameter = "seed" | "seed byte length" | "state byte length" | `seed[${number}]`;
 
 // @public
 export interface RngOptions {
@@ -50,6 +116,7 @@ export class SeededRng implements RandomNumberGenerator {
     fillBytes(dest: Uint8Array): void;
     fillBytesPacked(dest: Uint8Array): void;
     static forTesting(): SeededRng;
+    static fromState(state: Uint8Array): SeededRng;
     nextU32(): number;
     nextU64(): bigint;
     nextU64Low32(): number;

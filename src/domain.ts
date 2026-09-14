@@ -1,27 +1,49 @@
 /**
- * Argument-domain checks for the samplers and the seeded generator.
+ * Argument-domain checks for the samplers and the byte helpers.
  *
  * TypeScript has no integer widths: a `u8` bound is a `number` that must be an
- * integer in `[1, 255]`. Every check throws `RangeError` with one message shape,
- * `"<name> must be an integer in [<min>, <max>], got <value>"`.
+ * integer in `[1, 255]`. Every check throws `RandError` `InvalidArgument` with
+ * one message shape, `"<name> must be an integer in [<min>, <max>], got <value>"`.
  *
  * @module domain
  */
+import { RandError, type RandParameter } from "./error.js";
 
 /** Throws unless `value` is an integer `number` in `[min, max]`. Returns it. */
-export function expectInt(value: number, min: number, max: number, name: string): number {
+export function expectInt(value: number, min: number, max: number, name: RandParameter): number {
   if (!Number.isInteger(value) || value < min || value > max) {
-    throw new RangeError(`${name} must be an integer in [${min}, ${max}], got ${String(value)}`);
+    throw RandError.invalidArgument(name, value, { min, max });
   }
   return value;
 }
 
 /** Throws unless `value` is a `bigint` in `[min, max]`. Returns it. */
-export function expectBigInt(value: bigint, min: bigint, max: bigint, name: string): bigint {
+export function expectBigInt(value: bigint, min: bigint, max: bigint, name: RandParameter): bigint {
   if (typeof value !== "bigint" || value < min || value > max) {
-    throw new RangeError(`${name} must be an integer in [${min}, ${max}], got ${String(value)}`);
+    throw RandError.invalidArgument(name, value, { min, max });
   }
   return value;
+}
+
+/**
+ * `value` is a `Uint8Array` (or a subclass such as `Buffer`), including one
+ * from another realm, whose `instanceof` fails.
+ */
+export function isBytes(value: unknown): value is Uint8Array {
+  return (
+    value instanceof Uint8Array ||
+    (ArrayBuffer.isView(value) && value.constructor.name === "Uint8Array")
+  );
+}
+
+/**
+ * A generator member read as data, for a presence check (never a detached
+ * call, so `this` is not at stake).
+ *
+ * @internal
+ */
+export function memberOf(rng: object, name: string): unknown {
+  return (rng as Record<string, unknown>)[name];
 }
 
 /** An integer width's inclusive bounds. */

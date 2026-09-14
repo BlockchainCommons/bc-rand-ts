@@ -89,7 +89,8 @@ export class Xoshiro256StarStar {
    *
    * This is the reference *wrapper*'s `next_u32` (`next_u64() as u32`), which
    * every seeded fixture depends on. `rand_xoshiro`'s own `next_u32` takes the
-   * high half instead; it is not exposed here.
+   * high half instead (`outHi` after a step); it feeds only the 1–4-byte tail
+   * of `SeededRng.fillBytesPacked`.
    */
   nextU32(): number {
     this.step();
@@ -110,14 +111,15 @@ export class Xoshiro256StarStar {
     return out;
   }
 
-  /** The generator whose state is `bytes` (32 little-endian bytes, as `toBytes` gives). */
-  static fromBytes(bytes: Uint8Array): Xoshiro256StarStar {
-    if (bytes.length !== 32)
-      throw new RangeError(`xoshiro256** state must be 32 bytes, got ${bytes.length}`);
+  /**
+   * Overwrite the state with `bytes` (32 little-endian bytes, as `toBytes`
+   * gives), exactly: no all-zero substitution, so an all-zero state stays
+   * the fixed point, as provenance-mark's `Xoshiro256StarStar::from_data`
+   * leaves it. The caller has checked the length.
+   */
+  loadBytes(bytes: Uint8Array): void {
     const view = new DataView(bytes.buffer, bytes.byteOffset, 32);
-    const seed: [bigint, bigint, bigint, bigint] = [0n, 0n, 0n, 0n];
-    for (let i = 0; i < 4; i++) seed[i] = view.getBigUint64(i * 8, true);
-    return new Xoshiro256StarStar(seed);
+    for (let i = 0; i < 8; i++) this.s[i] = view.getUint32(i * 4, true);
   }
 
   /** `length` bytes, one generator step per byte (the low byte of each output). */

@@ -3,13 +3,13 @@
  *
  * @module secure-rng
  */
+import { isBytes } from "./domain.js";
+import { RandError } from "./error.js";
 import type { RandomNumberGenerator } from "./rng.js";
 
 function getCrypto(): Crypto {
   const c = globalThis.crypto as Crypto | undefined;
-  if (c === undefined) {
-    throw new TypeError("no Web Crypto API available in this environment");
-  }
+  if (c === undefined) throw RandError.cryptoUnavailable();
   return c;
 }
 
@@ -19,11 +19,20 @@ const scratch = new Uint8Array(8);
 const scratchView = new DataView(scratch.buffer);
 
 /**
+ * Web Crypto's per-call limit: `getRandomValues` throws `QuotaExceededError`
+ * for a view longer than this (the spec, browsers and Node; Bun does not
+ * enforce it). Fills are chunked so that, like the reference's `random_data`,
+ * any length is accepted.
+ */
+const GET_RANDOM_VALUES_MAX = 65536;
+
+/**
  * A generator backed by Web Crypto (`crypto.getRandomValues`), available in
  * every modern browser and in Node >= 15. It holds no state: every instance
- * draws from the same platform source.
+ * draws from the same platform source. `fillBytes` accepts any length; the
+ * platform's 65,536-byte per-call quota is handled by filling in chunks.
  *
- * @throws {TypeError} from any draw when the environment has no Web Crypto API.
+ * @throws {RandError} `CryptoUnavailable` from any draw when the environment has no Web Crypto API.
  */
 export class SecureRng implements RandomNumberGenerator {
   /** Debug label: `Object.prototype.toString` reports the class name. */
@@ -51,9 +60,28 @@ export class SecureRng implements RandomNumberGenerator {
     return this.nextU32();
   }
 
-  /** Fill `dest` with secure random bytes. */
+  /**
+   * Fill `dest` with secure random bytes. Any length: buffers above 65,536
+   * bytes are filled in chunks of at most that size (`subarray` views, no
+   * copies); shorter ones take one `getRandomValues` call.
+   * @throws {RandError} `InvalidArgument` unless `dest` is a `Uint8Array`.
+   */
   fillBytes(dest: Uint8Array): void {
-    getCrypto().getRandomValues(dest as Uint8Array<ArrayBuffer>);
+    if (!isBytes(dest)) throw RandError.invalidDest("dest", dest);
+    const c = getCrypto();
+    const n = dest.length;
+    if (n <= GET_RANDOM_VALUES_MAX) {
+      c.getRandomValues(dest as Uint8Array<ArrayBuffer>);
+      return;
+    }
+    for (let offset = 0; offset < n; offset += GET_RANDOM_VALUES_MAX) {
+      c.getRandomValues(
+        dest.subarray(
+          offset,
+          Math.min(offset + GET_RANDOM_VALUES_MAX, n),
+        ) as Uint8Array<ArrayBuffer>,
+      );
+    }
   }
 }
 

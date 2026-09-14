@@ -1,5 +1,5 @@
 {
- "count": 483,
+ "count": 490,
  "vectors": [
   {
    "name": "raw/u64x32/seed0",
@@ -43872,6 +43872,215 @@
      "546276821344993881",
      "15870950426333349563"
     ]
+   }
+  },
+  {
+   "name": "domain/seed/empty",
+   "gen": {
+    "kind": "seeded",
+    "words": []
+   },
+   "ops": [
+    {
+     "op": "u64"
+    },
+    {
+     "op": "u64"
+    },
+    {
+     "op": "u64"
+    },
+    {
+     "op": "u64"
+    }
+   ],
+   "expect": {
+    "out": [
+     "throw:seed must be four u64 words or 32 bytes, got Array(0)"
+    ],
+    "state": []
+   }
+  },
+  {
+   "name": "domain/seed/words3",
+   "gen": {
+    "kind": "seeded",
+    "words": [
+     "1",
+     "2",
+     "3"
+    ]
+   },
+   "ops": [
+    {
+     "op": "u64"
+    },
+    {
+     "op": "u64"
+    },
+    {
+     "op": "u64"
+    },
+    {
+     "op": "u64"
+    }
+   ],
+   "expect": {
+    "out": [
+     "throw:seed must be four u64 words or 32 bytes, got Array(3)"
+    ],
+    "state": []
+   }
+  },
+  {
+   "name": "domain/seed/words5",
+   "gen": {
+    "kind": "seeded",
+    "words": [
+     "17295166580085024720",
+     "422929670265678780",
+     "5577237070365765850",
+     "7953171132032326923",
+     "99"
+    ]
+   },
+   "ops": [
+    {
+     "op": "u64"
+    },
+    {
+     "op": "u64"
+    },
+    {
+     "op": "u64"
+    },
+    {
+     "op": "u64"
+    }
+   ],
+   "expect": {
+    "out": [
+     "throw:seed must be four u64 words or 32 bytes, got Array(5)"
+    ],
+    "state": []
+   }
+  },
+  {
+   "name": "domain/seed/word-2^64",
+   "gen": {
+    "kind": "seeded",
+    "words": [
+     "18446744073709551616",
+     "1",
+     "1",
+     "1"
+    ]
+   },
+   "ops": [
+    {
+     "op": "u64"
+    },
+    {
+     "op": "u64"
+    },
+    {
+     "op": "u64"
+    },
+    {
+     "op": "u64"
+    }
+   ],
+   "expect": {
+    "out": [
+     "throw:seed[0] must be an integer in [0, 18446744073709551615], got 18446744073709551616"
+    ],
+    "state": []
+   }
+  },
+  {
+   "name": "domain/seed/word-negative",
+   "gen": {
+    "kind": "seeded",
+    "words": [
+     "1",
+     "-1",
+     "1",
+     "1"
+    ]
+   },
+   "ops": [
+    {
+     "op": "u64"
+    },
+    {
+     "op": "u64"
+    },
+    {
+     "op": "u64"
+    },
+    {
+     "op": "u64"
+    }
+   ],
+   "expect": {
+    "out": [
+     "throw:seed[1] must be an integer in [0, 18446744073709551615], got -1"
+    ],
+    "state": []
+   }
+  },
+  {
+   "name": "domain/seed/bytes31",
+   "gen": {
+    "kind": "seeded-bytes",
+    "bytes": "0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
+   },
+   "ops": [
+    {
+     "op": "u64"
+    },
+    {
+     "op": "u64"
+    },
+    {
+     "op": "u64"
+    },
+    {
+     "op": "u64"
+    }
+   ],
+   "expect": {
+    "out": [
+     "throw:seed byte length must be an integer in [32, 32], got 31"
+    ],
+    "state": []
+   }
+  },
+  {
+   "name": "domain/seed/bytes33",
+   "gen": {
+    "kind": "seeded-bytes",
+    "bytes": "0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f2021"
+   },
+   "ops": [
+    {
+     "op": "u64"
+    },
+    {
+     "op": "u64"
+    },
+    {
+     "op": "u64"
+    },
+    {
+     "op": "u64"
+    }
+   ],
+   "expect": {
+    "out": [
+     "throw:seed byte length must be an integer in [32, 32], got 33"
+    ],
+    "state": []
    }
   }
  ]

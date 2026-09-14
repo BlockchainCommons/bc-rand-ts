@@ -8,7 +8,7 @@
  *   bun examples/custom-generator.ts
  */
 import type { RandomNumberGenerator } from "../src/index";
-import { randomBytes } from "../src/index";
+import { RandError, randomBytes } from "../src/index";
 import { nextInRangeI16, nextWithUpperBoundU8 } from "../src/samplers";
 
 /** A byte counter: not random, but it makes every draw visible. */
@@ -53,5 +53,5 @@ console.log("i16 range  ", nextInRangeI16(rng, -1000, 1000));
 try {
   nextWithUpperBoundU8(rng, 256);
 } catch (e) {
-  console.log("invalid    ", (e as RangeError).message); // upperBound must be an integer in [1, 255], got 256
+  console.log("invalid    ", (e as RandError).code, (e as RandError).message); // InvalidArgument upperBound must be an integer in [1, 255], got 256
 }

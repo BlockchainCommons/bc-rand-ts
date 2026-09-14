@@ -2,7 +2,7 @@
   {
     "name": "ESM entry (import *), minified + gzipped",
     "path": "dist/index.mjs",
-    "limit": "2 kB"
+    "limit": "3 kB"
   },
   {
     "name": "samplers subpath, minified + gzipped",
