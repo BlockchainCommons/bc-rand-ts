@@ -76,6 +76,7 @@
     "lint:pkg": "publint && attw --pack . --profile node16",
     "check:deps": "bun scripts/check-deps.ts --zero",
     "vectors:generate": "bun scripts/generate-vectors.ts",
+    "vectors:full": "bun scripts/generate-vectors.ts --full",
     "test:golden": "vitest run tests/golden-vectors.test.ts",
     "test:differential": "vitest run tests/differential.test.ts"
   },

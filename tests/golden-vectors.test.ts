@@ -1,6 +1,6 @@
 /**
- * Golden vector suite: the committed, hand-pinned freeze of every
- * seeded output. Changes only through `bun run vectors:generate`.
+ * Golden vector suite: replays the committed vectors against the working
+ * tree. They change only through `bun run vectors:generate`.
  */
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";

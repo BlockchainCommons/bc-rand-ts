@@ -3,7 +3,8 @@
  *
  * @module seeded-rng
  */
-import { U64_MAX, expectBigInt, expectInt } from "./domain.js";
+import { U64_MAX, isBytes } from "./domain.js";
+import { RandError } from "./error.js";
 import type { RandomNumberGenerator } from "./rng.js";
 import { Xoshiro256StarStar } from "./xoshiro.js";
 
@@ -14,15 +15,17 @@ export type Seed = readonly [bigint, bigint, bigint, bigint];
  * The fixed seed behind {@link SeededRng.forTesting}. Shared with the Rust
  * and Swift reference implementations so cross-platform fixtures agree.
  */
-export const TEST_SEED: Seed = [
+export const TEST_SEED: Seed = Object.freeze([
   17295166580085024720n,
   422929670265678780n,
   5577237070365765850n,
   7953171132032326923n,
-];
+] as const);
 
 function wordsFromBytes(bytes: Uint8Array): Seed {
-  expectInt(bytes.length, 32, 32, "seed byte length");
+  if (bytes.length !== 32) {
+    throw RandError.invalidSeed("seed byte length", "an integer in [32, 32]", bytes.length);
+  }
   const view = new DataView(bytes.buffer, bytes.byteOffset, 32);
   return [
     view.getBigUint64(0, true),
@@ -30,6 +33,28 @@ function wordsFromBytes(bytes: Uint8Array): Seed {
     view.getBigUint64(16, true),
     view.getBigUint64(24, true),
   ];
+}
+
+/** `value` as the `u64` word `seed[index]`; the reference's `[u64; 4]` element type. */
+function expectWord(value: unknown, index: number): bigint {
+  if (typeof value !== "bigint" || value < 0n || value > U64_MAX) {
+    throw RandError.invalidSeed(`seed[${index}]`, "an integer in [0, 18446744073709551615]", value);
+  }
+  return value;
+}
+
+/**
+ * The four words of an array seed, validated by index (so a hole reports
+ * `got undefined`). Anything that is not an array of length 4 — a shorter or
+ * longer array, a typed array other than `Uint8Array`, an `ArrayBuffer`, a
+ * `DataView`, a string — is rejected: the reference's seed is `[u64; 4]`.
+ */
+function wordsFromArray(seed: unknown): Seed {
+  if (!Array.isArray(seed) || seed.length !== 4) {
+    throw RandError.invalidSeed("seed", "four u64 words or 32 bytes", seed);
+  }
+  const w = seed as readonly unknown[];
+  return [expectWord(w[0], 0), expectWord(w[1], 1), expectWord(w[2], 2), expectWord(w[3], 3)];
 }
 
 /**
@@ -50,6 +75,14 @@ function splitMix64Of(seed: bigint): Seed {
   }
   return words as unknown as Seed;
 }
+
+/**
+ * A core for the next `SeededRng` construction to adopt instead of reading
+ * its seed: how `fromState` builds a generator from raw state in one pass
+ * while keeping a single constructor (and a single instance shape).
+ * Consumed synchronously by that construction.
+ */
+let pendingCore: Xoshiro256StarStar | undefined;
 
 /** Four little-endian bytes of `value` at `offset`. */
 function writeU32(dest: Uint8Array, offset: number, value: number): void {
@@ -72,8 +105,8 @@ function writeTail(dest: Uint8Array, offset: number, value: number, count: numbe
  *
  * `fillBytes` draws one 64-bit word per byte and keeps its low byte — the
  * reference's `fill_random_data`, which every seeded fixture downstream
- * depends on. (`rand_core`'s packed eight-bytes-per-draw `fill_bytes` is not
- * exposed.)
+ * depends on. {@link SeededRng.fillBytesPacked} is the other stream,
+ * `rand_core`'s packed `fill_bytes`.
  */
 export class SeededRng implements RandomNumberGenerator {
   private readonly core: Xoshiro256StarStar;
@@ -91,13 +124,20 @@ export class SeededRng implements RandomNumberGenerator {
    *   layout `rand_xoshiro`'s `from_seed` reads, and the one {@link SeededRng.state}
    *   returns). An all-zero seed is replaced by the SplitMix64 expansion of
    *   zero, as the reference does.
-   * @throws {RangeError} when a word is outside `u64` or the bytes are not 32.
+   * @throws {RandError} `InvalidSeed` unless `seed` is an array of exactly
+   *   four `bigint`s in `[0, 2^64 - 1]` (holes and other element types are
+   *   rejected) or a `Uint8Array` of exactly 32 bytes. Other typed arrays,
+   *   `ArrayBuffer`s and `DataView`s are rejected.
    */
   constructor(seed: Seed | Uint8Array) {
-    let words = seed instanceof Uint8Array ? wordsFromBytes(seed) : seed;
-    words.forEach((w, i) => expectBigInt(w, 0n, U64_MAX, `seed[${i}]`));
-    if (words.every((w) => w === 0n)) words = splitMix64Of(0n);
-    this.core = new Xoshiro256StarStar(words);
+    if (pendingCore !== undefined) {
+      this.core = pendingCore;
+      pendingCore = undefined;
+      return;
+    }
+    const words = isBytes(seed) ? wordsFromBytes(seed) : wordsFromArray(seed);
+    const zero = words[0] === 0n && words[1] === 0n && words[2] === 0n && words[3] === 0n;
+    this.core = new Xoshiro256StarStar(zero ? splitMix64Of(0n) : words);
   }
 
   /** A generator seeded with {@link TEST_SEED}. */
@@ -105,14 +145,38 @@ export class SeededRng implements RandomNumberGenerator {
     return new SeededRng(TEST_SEED);
   }
 
-  /** The 256-bit state as 32 little-endian bytes (a copy); `new SeededRng(state)` resumes it. */
+  /**
+   * The generator whose state is exactly `state`: the 32 little-endian bytes
+   * {@link SeededRng.state} returns, restored with **no** all-zero
+   * substitution. This is provenance-mark's `Xoshiro256StarStar::from_data`;
+   * `bc-rand` itself has no raw-state constructor. An all-zero state is
+   * xoshiro's fixed point and draws zeros forever, as it does there; the
+   * constructor, which is `from_seed`, substitutes it instead.
+   *
+   * @throws {RandError} `InvalidSeed` unless `state` is a `Uint8Array` of exactly 32 bytes.
+   */
+  static fromState(state: Uint8Array): SeededRng {
+    if (!isBytes(state)) throw RandError.invalidSeed("state byte length", "32 bytes", state);
+    if (state.length !== 32) {
+      throw RandError.invalidSeed("state byte length", "an integer in [32, 32]", state.length);
+    }
+    pendingCore = Xoshiro256StarStar.fromBytes(state);
+    return new SeededRng(TEST_SEED);
+  }
+
+  /**
+   * The 256-bit state as 32 little-endian bytes (a copy);
+   * {@link SeededRng.fromState} resumes it exactly. (`new SeededRng(state)`
+   * also resumes every state a generator can reach, but substitutes an
+   * all-zero one.)
+   */
   get state(): Uint8Array<ArrayBuffer> {
     return this.core.toBytes();
   }
 
   /** An independent generator at the same state. */
   clone(): SeededRng {
-    return new SeededRng(this.state);
+    return SeededRng.fromState(this.state);
   }
 
   /** The next 64-bit output of xoshiro256**. */
@@ -130,8 +194,12 @@ export class SeededRng implements RandomNumberGenerator {
     return this.core.nextU32();
   }
 
-  /** One 64-bit draw per byte, keeping the low byte (the reference's `fill_random_data`). */
+  /**
+   * One 64-bit draw per byte, keeping the low byte (the reference's `fill_random_data`).
+   * @throws {RandError} `InvalidArgument` unless `dest` is a `Uint8Array`.
+   */
   fillBytes(dest: Uint8Array): void {
+    if (!isBytes(dest)) throw RandError.invalidDest("dest", dest);
     for (let i = 0; i < dest.length; i++) {
       dest[i] = this.core.nextByte();
     }
@@ -145,8 +213,10 @@ export class SeededRng implements RandomNumberGenerator {
    * step. This is what reference code reaching the generator through
    * `rand_core` generics draws (e.g. `bc-crypto`'s Ed25519 key generation);
    * {@link SeededRng.fillBytes} is the other stream, `fill_random_data`.
+   * @throws {RandError} `InvalidArgument` unless `dest` is a `Uint8Array`.
    */
   fillBytesPacked(dest: Uint8Array): void {
+    if (!isBytes(dest)) throw RandError.invalidDest("dest", dest);
     const core = this.core;
     const n = dest.length;
     let i = 0;

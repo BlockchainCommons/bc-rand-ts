@@ -1,3 +1,5 @@
+import { runInNewContext } from "node:vm";
+import { vi } from "vitest";
 import { Xoshiro256StarStar } from "../src/xoshiro";
 import {
   SeededRng,
@@ -8,6 +10,7 @@ import {
   fillRandomBytes,
   testRandomBytes,
   TEST_SEED,
+  RandError,
 } from "../src/index";
 import {
   nextWithUpperBoundU8,
@@ -157,6 +160,101 @@ describe("SeededRng", () => {
   });
 });
 
+describe("SeededRng seed shape (the reference's [u64; 4], or its 32 bytes)", () => {
+  const ZERO_FIRST = 11091344671253066420n;
+  const U64_RANGE = "an integer in [0, 18446744073709551615]";
+  /** `[a, <hole>, b, c]`: a length-4 array with a hole at index 1. */
+  const sparse = (a: bigint, b: bigint, c: bigint): bigint[] =>
+    Object.assign(new Array<bigint>(4), { 0: a, 2: b, 3: c });
+
+  test("only four 0n words or 32 zero bytes reach the all-zero substitution", () => {
+    expect(new SeededRng([0n, 0n, 0n, 0n]).nextU64()).toBe(ZERO_FIRST);
+    expect(new SeededRng(new Uint8Array(32)).nextU64()).toBe(ZERO_FIRST);
+    expect(new SeededRng(Buffer.alloc(32)).nextU64()).toBe(ZERO_FIRST);
+  });
+
+  test("a Uint8Array subclass, a subarray with an offset, and a cross-realm Uint8Array are bytes", () => {
+    const first = 1104683000648959614n; // TEST_SEED's first draw
+    const bytes = SeededRng.forTesting().state;
+    expect(new SeededRng(Buffer.from(bytes)).nextU64()).toBe(first);
+    const padded = new Uint8Array(48);
+    padded.set(bytes, 8);
+    expect(new SeededRng(padded.subarray(8, 40)).nextU64()).toBe(first);
+    const foreign = runInNewContext("new Uint8Array(32)") as Uint8Array;
+    expect(foreign instanceof Uint8Array).toBe(false);
+    foreign.set(bytes);
+    expect(new SeededRng(foreign).nextU64()).toBe(first);
+  });
+
+  test.each<[string, unknown, string]>([
+    ["[]", [], "seed must be four u64 words or 32 bytes, got Array(0)"],
+    ["new Array(4)", new Array(4), `seed[0] must be ${U64_RANGE}, got undefined`],
+    ["[0n, , 0n, 0n]", sparse(0n, 0n, 0n), `seed[1] must be ${U64_RANGE}, got undefined`],
+    ["[1n, , 2n, 3n]", sparse(1n, 2n, 3n), `seed[1] must be ${U64_RANGE}, got undefined`],
+    ["[1n, 2n, 3n]", [1n, 2n, 3n], "seed must be four u64 words or 32 bytes, got Array(3)"],
+    ["five words", [...TEST_SEED, 99n], "seed must be four u64 words or 32 bytes, got Array(5)"],
+    ["[1, 2, 3, 4]", [1, 2, 3, 4], `seed[0] must be ${U64_RANGE}, got 1`],
+    ["[1n, -1n, 1n, 1n]", [1n, -1n, 1n, 1n], `seed[1] must be ${U64_RANGE}, got -1`],
+    [
+      "[2^64, 1n, 1n, 1n]",
+      [1n << 64n, 1n, 1n, 1n],
+      `seed[0] must be ${U64_RANGE}, got 18446744073709551616`,
+    ],
+    ['"abcd"', "abcd", "seed must be four u64 words or 32 bytes, got abcd"],
+    ["null", null, "seed must be four u64 words or 32 bytes, got null"],
+    ["undefined", undefined, "seed must be four u64 words or 32 bytes, got undefined"],
+    [
+      "new ArrayBuffer(32)",
+      new ArrayBuffer(32),
+      "seed must be four u64 words or 32 bytes, got ArrayBuffer",
+    ],
+    [
+      "new DataView(...)",
+      new DataView(new ArrayBuffer(32)),
+      "seed must be four u64 words or 32 bytes, got DataView",
+    ],
+    [
+      "new Uint8ClampedArray(32)",
+      new Uint8ClampedArray(32),
+      "seed must be four u64 words or 32 bytes, got Uint8ClampedArray",
+    ],
+    [
+      "new BigUint64Array(4)",
+      new BigUint64Array([1n, 2n, 3n, 4n]),
+      "seed must be four u64 words or 32 bytes, got BigUint64Array",
+    ],
+    [
+      "new Uint8Array(31)",
+      new Uint8Array(31),
+      "seed byte length must be an integer in [32, 32], got 31",
+    ],
+    [
+      "new Uint8Array(33)",
+      new Uint8Array(33),
+      "seed byte length must be an integer in [32, 32], got 33",
+    ],
+  ])("rejects %s with InvalidSeed before any draw", (_label, seed, message) => {
+    let error: unknown;
+    try {
+      new SeededRng(seed as never);
+    } catch (e) {
+      error = e;
+    }
+    expect(RandError.isRandError(error)).toBe(true);
+    expect((error as RandError).code).toBe("InvalidSeed");
+    expect((error as RandError).message).toBe(message);
+  });
+
+  test("TEST_SEED is frozen, so no caller can change forTesting() for everyone", () => {
+    expect(Object.isFrozen(TEST_SEED)).toBe(true);
+    expect(() => {
+      (TEST_SEED as unknown as bigint[])[1] = 1n;
+    }).toThrow(TypeError);
+    expect(TEST_SEED[1]).toBe(422929670265678780n);
+    expect(SeededRng.forTesting().nextU64()).toBe(1104683000648959614n);
+  });
+});
+
 describe("SecureRng", () => {
   test("randomBytes defaults to the secure generator (reference test_random_data)", () => {
     const data1 = randomBytes(32);
@@ -207,6 +305,49 @@ describe("SecureRng", () => {
     const rng = secureRng();
     expect(rng).toBeInstanceOf(SecureRng);
     expect(randomBytes(16, { rng: rng }).length).toBe(16);
+  });
+
+  test("fills above 65,536 bytes in chunks the Web Crypto quota allows (the reference's random_data has no limit)", () => {
+    const real = globalThis.crypto;
+    const calls: number[] = [];
+    // A spec-enforcing stand-in: Node and browsers throw above 65,536 bytes; Bun does not.
+    const stub = {
+      getRandomValues(array: Uint8Array<ArrayBuffer>): Uint8Array<ArrayBuffer> {
+        if (array.byteLength > 65536) {
+          throw new DOMException("The requested length exceeds 65,536 bytes", "QuotaExceededError");
+        }
+        calls.push(array.byteLength);
+        return real.getRandomValues(array);
+      },
+    };
+    vi.stubGlobal("crypto", stub);
+    try {
+      const out = randomBytes(200_001);
+      expect(out.length).toBe(200_001);
+      expect(calls).toEqual([65536, 65536, 65536, 3393]);
+      // The tail chunk was filled (3,393 zero bytes from a CSPRNG is not a real outcome).
+      expect(out.subarray(200_001 - 3393).some((b) => b !== 0)).toBe(true);
+      calls.length = 0;
+      randomBytes(65536);
+      expect(calls).toEqual([65536]);
+      calls.length = 0;
+      const dest = new Uint8Array(70_000);
+      fillRandomBytes(dest);
+      expect(calls).toEqual([65536, 4464]);
+      expect(dest.subarray(65536).some((b) => b !== 0)).toBe(true);
+      calls.length = 0;
+      expect(randomBytes(0).length).toBe(0);
+      expect(calls).toEqual([0]);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  test("an unstubbed 70,000-byte secure fill succeeds (above the Web Crypto per-call quota)", () => {
+    const dest = new Uint8Array(70_000);
+    fillRandomBytes(dest);
+    expect(dest.subarray(65_536).some((b) => b !== 0)).toBe(true);
+    expect(randomBytes(200_001).length).toBe(200_001);
   });
 });
 
@@ -325,15 +466,19 @@ describe("widening multiplication", () => {
 });
 
 describe("Xoshiro256StarStar state bytes (internal core)", () => {
-  it("toBytes/fromBytes round-trip the state and continue the same stream", () => {
+  it("toBytes/loadBytes round-trip the state and continue the same stream", () => {
     const a = new Xoshiro256StarStar([1n, 2n, 3n, 4n]);
     a.nextU64();
     const bytes = a.toBytes();
     expect(bytes.length).toBe(32);
-    const b = Xoshiro256StarStar.fromBytes(bytes);
+    const b = new Xoshiro256StarStar([9n, 9n, 9n, 9n]);
+    b.loadBytes(bytes);
     expect(b.toBytes()).toEqual(bytes);
     expect(b.nextU64()).toBe(a.nextU64());
-    expect(() => Xoshiro256StarStar.fromBytes(new Uint8Array(31))).toThrow(RangeError);
+    // No substitution at this level: the all-zero state is the fixed point.
+    b.loadBytes(new Uint8Array(32));
+    expect(b.nextU64()).toBe(0n);
+    expect(b.toBytes()).toEqual(new Uint8Array(32));
   });
 
   it("nextBytes takes one low byte per step", () => {
@@ -341,6 +486,189 @@ describe("Xoshiro256StarStar state bytes (internal core)", () => {
     const b = new Xoshiro256StarStar([1n, 2n, 3n, 4n]);
     const expected = Uint8Array.from({ length: 5 }, () => Number(b.nextU64() & 0xffn));
     expect(a.nextBytes(5)).toEqual(expected);
+  });
+});
+
+describe("SeededRng.fromState (provenance-mark's Xoshiro256StarStar::from_data)", () => {
+  test("an all-zero state draws zeros and stays all zero, as the reference's from_data does", () => {
+    // provenance-mark 0.24.0: from_data(&[0; 32]) -> next_u64 = 0, next_bytes(4) = [0, 0, 0, 0].
+    const rng = SeededRng.fromState(new Uint8Array(32));
+    expect([rng.nextU64(), rng.nextU64(), rng.nextU64(), rng.nextU64()]).toEqual([0n, 0n, 0n, 0n]);
+    expect(randomBytes(4, { rng })).toEqual(new Uint8Array(4));
+    expect(rng.state).toEqual(new Uint8Array(32));
+    // The constructor is `from_seed`: it substitutes instead.
+    expect(new SeededRng(new Uint8Array(32)).nextU64()).toBe(11091344671253066420n);
+  });
+
+  test("fromState(s).state is s, and fromState(r.state) continues r", () => {
+    const s = randomBytes(32);
+    expect(SeededRng.fromState(s).state).toEqual(s);
+    expect(SeededRng.fromState(s).state).not.toBe(s);
+    const r = SeededRng.forTesting();
+    r.nextU64();
+    r.nextU32();
+    const resumed = SeededRng.fromState(r.state);
+    for (let i = 0; i < 8; i++) expect(resumed.nextU64()).toBe(r.nextU64());
+    // Every non-zero state gives the same stream through the constructor.
+    const viaCtor = new SeededRng(r.state);
+    expect(viaCtor.nextU64()).toBe(r.nextU64());
+    // The provenance-mark fixture: from_data(TEST_SEED bytes).next_bytes(4) == fake_random_data(4).
+    expect(
+      bytesToHex(randomBytes(4, { rng: SeededRng.fromState(SeededRng.forTesting().state) })),
+    ).toBe("7eb559bb");
+  });
+
+  test("clone() forks the exact state, including a zero one", () => {
+    const zero = SeededRng.fromState(new Uint8Array(32));
+    expect(zero.clone().nextU64()).toBe(0n);
+    const r = SeededRng.forTesting();
+    r.nextU64();
+    const fork = r.clone();
+    expect(fork.nextU64()).toBe(r.nextU64());
+    expect(fork.nextU64()).toBe(r.nextU64());
+  });
+
+  test.each<[string, unknown, string]>([
+    ["31 bytes", new Uint8Array(31), "state byte length must be an integer in [32, 32], got 31"],
+    ["33 bytes", new Uint8Array(33), "state byte length must be an integer in [32, 32], got 33"],
+    ["a plain array", new Array(32).fill(0), "state byte length must be 32 bytes, got Array(32)"],
+    [
+      "a BigUint64Array",
+      new BigUint64Array(4),
+      "state byte length must be 32 bytes, got BigUint64Array",
+    ],
+    ["undefined", undefined, "state byte length must be 32 bytes, got undefined"],
+  ])("rejects %s with InvalidSeed", (_label, state, message) => {
+    let error: unknown;
+    try {
+      SeededRng.fromState(state as never);
+    } catch (e) {
+      error = e;
+    }
+    expect(RandError.isRandError(error)).toBe(true);
+    expect((error as RandError).code).toBe("InvalidSeed");
+    expect((error as RandError).message).toBe(message);
+  });
+
+  test("Buffer and cross-realm Uint8Array states are accepted", () => {
+    const bytes = SeededRng.forTesting().state;
+    expect(SeededRng.fromState(Buffer.from(bytes)).nextU64()).toBe(1104683000648959614n);
+    const foreign = runInNewContext("new Uint8Array(32)") as Uint8Array;
+    foreign.set(bytes);
+    expect(SeededRng.fromState(foreign).nextU64()).toBe(1104683000648959614n);
+  });
+});
+
+describe("helpers enforce the generator contract and the dest type", () => {
+  const invalidGenerator = (f: () => unknown, method: string, value: unknown): void => {
+    let error: unknown;
+    try {
+      f();
+    } catch (e) {
+      error = e;
+    }
+    expect(RandError.isRandError(error), `expected RandError, got ${String(error)}`).toBe(true);
+    const e = error as RandError;
+    expect(e.code).toBe("InvalidGenerator");
+    expect(e.details).toEqual({ code: "InvalidGenerator", method, value });
+  };
+  const invalidDest = (f: () => unknown, value: unknown): void => {
+    let error: unknown;
+    try {
+      f();
+    } catch (e) {
+      error = e;
+    }
+    expect(RandError.isRandError(error), `expected RandError, got ${String(error)}`).toBe(true);
+    const e = error as RandError;
+    expect(e.code).toBe("InvalidArgument");
+    expect(e.details).toEqual({ code: "InvalidArgument", parameter: "dest", value });
+    expect(e.message.startsWith("dest must be a Uint8Array, got ")).toBe(true);
+  };
+
+  test("a generator without the member the helper calls throws InvalidGenerator naming it", () => {
+    invalidGenerator(() => randomBytes(4, { rng: {} as never }), "fillBytes", undefined);
+    invalidGenerator(
+      () => fillRandomBytes(new Uint8Array(4), { rng: { fillBytes: 1 } as never }),
+      "fillBytes",
+      1,
+    );
+    invalidGenerator(() => randomBool({ rng: { nextU32: 1 } as never }), "nextU32", 1);
+    invalidGenerator(() => randomBool({ rng: {} as never }), "nextU32", undefined);
+    // A primitive generator has no members.
+    invalidGenerator(() => randomBytes(4, { rng: 5 as never }), "fillBytes", undefined);
+    expect(() => randomBytes(4, { rng: {} as never })).toThrow(
+      "rng.fillBytes must be a function, got undefined",
+    );
+  });
+
+  test("randomBool checks the nextU32 draw", () => {
+    invalidGenerator(() => randomBool({ rng: { nextU32: () => 5n } as never }), "nextU32", 5n);
+    invalidGenerator(() => randomBool({ rng: { nextU32: () => -1 } as never }), "nextU32", -1);
+    invalidGenerator(() => randomBool({ rng: { nextU32: () => 1.5 } as never }), "nextU32", 1.5);
+    expect(randomBool({ rng: { nextU32: () => 4294967295 } as never })).toBe(false);
+    expect(randomBool({ rng: { nextU32: () => 4294967294 } as never })).toBe(true);
+  });
+
+  test("an undefined or null rng still selects the secure generator (helpers only)", () => {
+    for (const rng of [undefined, null]) {
+      const options = { rng } as never;
+      expect(randomBytes(8, options).some((b) => b !== 0)).toBe(true);
+      const dest = new Uint8Array(8);
+      fillRandomBytes(dest, options);
+      expect(dest.some((b) => b !== 0)).toBe(true);
+      expect(typeof randomBool(options)).toBe("boolean");
+    }
+    expect(randomBytes(8, {}).length).toBe(8);
+  });
+
+  test("the size check comes before the generator check", () => {
+    expect(() => randomBytes(-1, { rng: {} as never })).toThrow(
+      "size must be an integer in [0, 9007199254740991], got -1",
+    );
+  });
+
+  test.each<[string, unknown]>([
+    ["a Uint16Array", new Uint16Array(4)],
+    ["a Uint8ClampedArray", new Uint8ClampedArray(4)],
+    ["an Int8Array", new Int8Array(4)],
+    ["a DataView", new DataView(new ArrayBuffer(4))],
+    ["a plain array", [0, 0, 0, 0]],
+    ["an ArrayBuffer", new ArrayBuffer(4)],
+    ["undefined", undefined],
+  ])("%s is not a dest: InvalidArgument from every fill", (_label, dest) => {
+    const d = dest as never;
+    invalidDest(() => fillRandomBytes(d), dest);
+    invalidDest(() => fillRandomBytes(d, { rng: SeededRng.forTesting() }), dest);
+    invalidDest(() => SeededRng.forTesting().fillBytes(d), dest);
+    invalidDest(() => SeededRng.forTesting().fillBytesPacked(d), dest);
+    invalidDest(() => new SecureRng().fillBytes(d), dest);
+    // The dest check comes before the generator check.
+    invalidDest(() => fillRandomBytes(d, { rng: {} as never }), dest);
+  });
+
+  test("Buffer and a cross-realm Uint8Array are accepted by every fill", () => {
+    const expected = "7eb559bbbf6cce26";
+    for (const make of [
+      (): Uint8Array => Buffer.alloc(8),
+      (): Uint8Array => runInNewContext("new Uint8Array(8)") as Uint8Array,
+    ]) {
+      const a = make();
+      fillRandomBytes(a, { rng: SeededRng.forTesting() });
+      expect(bytesToHex(a)).toBe(expected);
+      const b = make();
+      SeededRng.forTesting().fillBytes(b);
+      expect(bytesToHex(b)).toBe(expected);
+      const c = make();
+      SeededRng.forTesting().fillBytesPacked(c);
+      expect(bytesToHex(c)).toBe("7e061813569f540f");
+      const d = make();
+      new SecureRng().fillBytes(d);
+      expect(d.some((x) => x !== 0)).toBe(true);
+      const e = make();
+      fillRandomBytes(e);
+      expect(e.some((x) => x !== 0)).toBe(true);
+    }
   });
 });
 
@@ -360,7 +688,7 @@ describe("coverage of the remaining branches", () => {
   });
 
   test("a byte seed must be 32 bytes", () => {
-    expect(() => new SeededRng(new Uint8Array(16))).toThrow(RangeError);
+    expect(() => new SeededRng(new Uint8Array(16))).toThrow(RandError);
     expect(() => new SeededRng(new Uint8Array(33))).toThrow(
       "seed byte length must be an integer in [32, 32], got 33",
     );
@@ -472,32 +800,32 @@ describe("usize samplers (the reference's usize instantiation)", () => {
       expect(nextWithUpperBoundUsize(a, e)).toBe(Number(nextWithUpperBoundU64(b, BigInt(e))));
     }
   });
-  test("arguments outside [0, 2^53 - 1] or non-integers are RangeErrors", () => {
+  test("arguments outside [0, 2^53 - 1] or non-integers are RandErrors", () => {
     const rng = SeededRng.forTesting();
-    expect(() => nextWithUpperBoundUsize(rng, 0)).toThrow(RangeError);
+    expect(() => nextWithUpperBoundUsize(rng, 0)).toThrow(RandError);
     expect(() => nextWithUpperBoundUsize(rng, 9007199254740992)).toThrow(
       "upperBound must be an integer in [1, 9007199254740991], got 9007199254740992",
     );
-    expect(() => nextInRangeUsize(rng, -1, 5)).toThrow(RangeError);
+    expect(() => nextInRangeUsize(rng, -1, 5)).toThrow(RandError);
     expect(() => nextInRangeUsize(rng, 5, 5)).toThrow("start must be less than end");
     expect(() => nextInClosedRangeUsize(rng, 1.5, 5)).toThrow("got 1.5");
-    expect(() => nextInClosedRangeUsize(rng, 6, 5)).toThrow(RangeError);
+    expect(() => nextInClosedRangeUsize(rng, 6, 5)).toThrow(RandError);
   });
 });
 
 describe("signed range lengths (the reference's checked arithmetic)", () => {
-  test("a length above the width's MAX is a RangeError for every signed width", () => {
+  test("a length above the width's MAX is a RandError for every signed width", () => {
     const rng = SeededRng.forTesting();
     expect(() => nextInClosedRangeI8(rng, -128, 127)).toThrow(
       "range length must be an integer in [0, 127], got 255",
     );
     expect(() => nextInRangeI8(rng, -1, 127)).toThrow("got 128");
-    expect(() => nextInClosedRangeI16(rng, -32768, 32767)).toThrow(RangeError);
-    expect(() => nextInRangeI32(rng, -128, 2147483647)).toThrow(RangeError);
+    expect(() => nextInClosedRangeI16(rng, -32768, 32767)).toThrow(RandError);
+    expect(() => nextInRangeI32(rng, -128, 2147483647)).toThrow(RandError);
     expect(() => nextInClosedRangeI64(rng, -7n, 9223372036854775807n)).toThrow(
       "range length must be an integer in [0, 9223372036854775807], got 9223372036854775814",
     );
-    expect(() => nextInRangeI64(rng, -9223372036854775808n, 0n)).toThrow(RangeError);
+    expect(() => nextInRangeI64(rng, -9223372036854775808n, 0n)).toThrow(RandError);
     // Nothing was drawn.
     expect(rng.nextU64()).toBe(SeededRng.forTesting().nextU64());
   });

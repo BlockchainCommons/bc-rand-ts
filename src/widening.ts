@@ -1,6 +1,6 @@
 /**
  * Wide (double-width) unsigned multiplication: the samplers' arithmetic.
- * Exported for the unit tests only.
+ * Not part of the public API; the unit tests also exercise it directly.
  *
  * @internal
  * @module widening

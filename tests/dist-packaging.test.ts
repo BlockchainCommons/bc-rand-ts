@@ -8,9 +8,7 @@
  * public names as the ESM one.
  *
  * What it catches: a missing or misdeclared entry point, and ESM/CJS surface
- * drift. It does NOT catch a prototype extension being tree-shaken away, since
- * that removes the method from both builds equally and leaves the named export
- * sets identical; only a behavioural test in a consumer catches that.
+ * drift.
  */
 
 import { createRequire } from "node:module";

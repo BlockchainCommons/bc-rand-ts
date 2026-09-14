@@ -1,6 +1,79 @@
 # Changelog
 
-## 1.0.0-beta.2
+## 1.0.0-beta.3 - 2026-09-14
+
+Adds the package's error type and the raw-state restore and closes the
+divergences listed below.
+
+### Fixed
+
+- **Secure fills above 65,536 bytes.** `SecureRng.fillBytes`, and so
+  `randomBytes(n)` / `fillRandomBytes(dest)` without `rng`, made one
+  `crypto.getRandomValues` call, which throws `QuotaExceededError` above
+  65,536 bytes under Node and in browsers (Bun does not enforce the quota);
+  the reference's `random_data` has no limit. Fills are now chunked at 65,536
+  bytes (`subarray` views, no copies); a request of at most 65,536 bytes still
+  makes one call. Downstream, `Salt`/`Seed` lengths and `addSalt` above 65,536
+  bytes succeed like their Rust counterparts.
+- **Seed shapes.** `new SeededRng(seed)` accepted `[]`, `new Array(4)` and
+  sparse arrays (all silently became the zero-seed stream), dropped a fifth
+  word, and leaked engine `TypeError`s for three words, strings,
+  `ArrayBuffer`s and `DataView`s; a `Uint8ClampedArray` was treated as words.
+  The seed must now be an array of exactly four `bigint`s in `[0, 2^64 - 1]`,
+  validated by index (a hole reports `got undefined`), or a `Uint8Array` of
+  exactly 32 bytes (`Buffer` and cross-realm `Uint8Array`s included);
+  everything else is `RandError` `InvalidSeed`. Only four `0n` words or 32
+  zero bytes reach the all-zero substitution.
+- **The generator contract is enforced.** A third-party generator whose
+  `nextU64()` returned a `number`, a negative `bigint` or one above
+  `2^64 - 1` leaked those values through the full-width early returns (a
+  `number` out of a `bigint` sampler, `-1n` out of `nextInClosedRangeU8`) or
+  crashed with an engine `TypeError`; a `nextU64Low32()` returning `-1`,
+  `1.5` or `2^40 + 7` was masked. Every draw is now checked: `nextU64()` must
+  return a `bigint` in `[0, 2^64 - 1]`, `nextU32()` and `nextU64Low32()` an
+  integer in `[0, 2^32 - 1]`, or the sampler or helper throws `RandError`
+  `InvalidGenerator` naming the method, with the generator left where the bad
+  draw put it. The same error covers a missing or non-callable `fillBytes`,
+  `nextU32`, `nextU64` or `nextU64Low32` (`{}`, `{ fillBytes: 1 }`,
+  `{ nextU64: 5 }`, `{ nextU64Low32: 5 }`, a primitive), and `undefined` or
+  `null` passed straight to a sampler; only `randomBytes`, `fillRandomBytes`
+  and `randomBool` treat an `undefined`/`null` `rng` as the secure generator.
+  Nothing is masked. A conforming generator is unaffected.
+- **`dest` must be a `Uint8Array`.** `fillRandomBytes`, `SeededRng.fillBytes`,
+  `SeededRng.fillBytesPacked` and `SecureRng.fillBytes` filled a `Uint16Array`
+  or a plain array differently on each generator; they now throw `RandError`
+  `InvalidArgument` (`"dest must be a Uint8Array, got …"`). `Buffer` and
+  cross-realm `Uint8Array`s are accepted.
+- **`TEST_SEED` is frozen.** It was a mutable array, so any module could
+  change `SeededRng.forTesting()` for every other.
+
+### Added
+
+- `RandError`: the package's one error type (`name`, `code`, `details`,
+  `is(code)`, `RandError.isRandError`, static factories, no public
+  constructor). Codes: `InvalidArgument`, `EmptyRange`,
+  `RangeTooLong`, `ValueDoesNotFit`, `InvalidSeed`, `InvalidGenerator`,
+  `CryptoUnavailable`. Where an error already existed, its message is unchanged
+  byte for byte. The factories are public so that a consumer calling a member
+  this package does not (bc-crypto's `fillBytesPacked`) reports the same error.
+- `SeededRng.fromState(state)`: the generator whose state is exactly the 32
+  bytes `state` returns, with **no** all-zero substitution. It is
+  provenance-mark's `Xoshiro256StarStar::from_data` (bc-rand has no raw-state
+  constructor); an all-zero state draws zeros forever, as there. `clone()` uses
+  it. The constructor stays `from_seed` and substitutes an all-zero seed.
+- `bun run vectors:full`: materializes the whole recipe corpus (3,150 vectors)
+  to a temp file for the Rust harness; CI replays it together with the golden
+  file.
+
+### Changed (breaking)
+
+- Every error is a `RandError`, not a `RangeError` or `TypeError`.
+  `instanceof RangeError` checks must become `RandError.isRandError(e)` (or
+  `e instanceof RandError`) and, where a branch is needed, `e.is(code)`.
+- `BigUint64Array` seeds are rejected (`InvalidSeed`); pass `Array.from(words)`
+  or the 32 bytes.
+
+## 1.0.0-beta.2 - 2026-09-12
 
 Closes every recorded behavioral divergence from `bc-rand` 0.5.0.
 
@@ -52,6 +125,6 @@ Closes every recorded behavioral divergence from `bc-rand` 0.5.0.
   the 33 signed-overflow recipes now record the throw and the two counter/raw
   recipes gained the packed operation; the other 385 are byte-identical).
 
-## 1.0.0-beta.1
+## 1.0.0-beta.1 - 2026-09-12
 
 Initial beta implementation.

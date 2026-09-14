@@ -8,6 +8,7 @@ import {
   type Op,
   type Width,
   type BoundWidth,
+  bytesToHex,
   wordsToSeedHex,
 } from "../vectors/recipes";
 
@@ -253,7 +254,7 @@ function* counterRecipes(): Generator<Recipe> {
         ? [
             [-7n, 7n],
             // The full signed range has a length above i64::MAX: out of the
-            // reference's domain (overflow), a RangeError here.
+            // reference's domain (overflow), a RandError here.
             [I_MIN[w as keyof typeof I_MIN], I_MAX[w as keyof typeof I_MAX]],
           ]
         : [
@@ -280,9 +281,10 @@ function* counterRecipes(): Generator<Recipe> {
 }
 
 /**
- * JS-only input domain: integers outside the sampler's width. The reference
- * cannot express them (its widths are types), so the Rust harness counts
- * these as `js-only`; the vectors record the `RangeError` each one raises.
+ * JS-only input domain: integers outside the sampler's width, and seeds that
+ * are not four `u64` words or 32 bytes. The reference cannot express them
+ * (its widths and its `[u64; 4]` seed are types), so the Rust harness counts
+ * these as `js-only`; the vectors record the `RandError` each one raises.
  */
 function* domainRecipes(): Generator<Recipe> {
   const bounds: [BoundWidth, string][] = [
@@ -326,6 +328,30 @@ function* domainRecipes(): Generator<Recipe> {
       ops: Array.from({ length: 4 }, () => ({ op: "range", w, s, e, closed })),
     };
   }
+  // Seed shapes the reference's `[u64; 4]` cannot take. The port rejects
+  // them at construction (the whole outcome is the throw: no draws, no
+  // state); the ops are never reached.
+  const raw: Op[] = Array.from({ length: 4 }, () => ({ op: "u64" }));
+  const seeds: [string, string[]][] = [
+    ["empty", []],
+    ["words3", ["1", "2", "3"]],
+    ["words5", [...SEEDS[0], "99"]],
+    ["word-2^64", ["18446744073709551616", "1", "1", "1"]],
+    ["word-negative", ["1", "-1", "1", "1"]],
+  ];
+  for (const [label, words] of seeds) {
+    yield { name: `domain/seed/${label}`, gen: { kind: "seeded", words }, ops: raw };
+  }
+  for (const n of [31, 33]) {
+    yield {
+      name: `domain/seed/bytes${n}`,
+      gen: {
+        kind: "seeded-bytes",
+        bytes: bytesToHex(Uint8Array.from({ length: n }, (_, i) => i + 1)),
+      },
+      ops: raw,
+    };
+  }
 }
 
 export const categories: Record<string, () => Generator<Recipe>> = {
@@ -341,7 +367,7 @@ export function* allRecipes(): Generator<Recipe> {
   for (const gen of Object.values(categories)) yield* gen();
 }
 
-/** The hand-pinned golden subset: a stride over the corpus plus the raw set. */
+/** The golden subset: a stride over the corpus plus the raw set. */
 export function* goldenRecipes(): Generator<Recipe> {
   yield* rawRecipes();
   let i = 0;

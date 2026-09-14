@@ -32,7 +32,7 @@ describe("golden: seeded generator", () => {
       const rng = new rand.SeededRng(seed);
       expect(Array.from({ length: 64 }, () => rng.nextU32())).toMatchSnapshot();
     });
-    it(`randomData(256) (${name})`, () => {
+    it(`randomBytes(256) (${name})`, () => {
       const rng = new rand.SeededRng(seed);
       expect(hex(rand.randomBytes(256, { rng }))).toMatchSnapshot();
     });
@@ -43,7 +43,7 @@ describe("golden: seeded generator", () => {
       expect([hex(buf), rng.nextU64().toString()]).toMatchSnapshot();
     });
   }
-  it("makeFakeRandomNumberGenerator / fakeRandomData", () => {
+  it("forTesting / testRandomBytes", () => {
     expect(hex(rand.testRandomBytes(32))).toMatchSnapshot();
     expect(rand.SeededRng.forTesting().nextU64().toString()).toMatchSnapshot();
   });
@@ -85,7 +85,7 @@ describe("golden: samplers (consumption pattern)", () => {
     it(`range samplers (${name})`, () => {
       const rng = new rand.SeededRng(seed);
       const out: Record<string, unknown> = {};
-      // Full-range branches draw a raw u64 and throw on overflow by design; record either outcome.
+      // Full-range branches draw a raw u64 and throw when it does not fit; record either outcome.
       const n = (f: () => number | bigint) =>
         Array.from({ length: 6 }, () => {
           try {
@@ -168,7 +168,7 @@ describe("golden: samplers (consumption pattern)", () => {
   }
   it("signed ranges longer than the width's MAX are rejected before any draw", () => {
     // The reference's `end - start` overflows for these (a panic when
-    // checked); the port throws RangeError and leaves the generator untouched.
+    // checked); the port throws RandError and leaves the generator untouched.
     const rng = new rand.SeededRng(SEEDS[0][1]);
     const first = new rand.SeededRng(SEEDS[0][1]).nextU64();
     const outcome = (f: () => unknown): string => {
@@ -218,8 +218,8 @@ describe("golden: pure helpers", () => {
 });
 
 /**
- * Freeze recording the zero-seed substitution, byte seeds, the input-domain
- * rejections and the fast-path precondition.
+ * The zero-seed substitution, byte seeds, the input-domain rejections and the
+ * fast-path precondition.
  */
 const outcome = (f: () => unknown): string => {
   try {
@@ -229,7 +229,7 @@ const outcome = (f: () => unknown): string => {
   }
 };
 
-describe("golden: freeze additions", () => {
+describe("golden: seed forms, argument domain and the fast path", () => {
   it("all-zero seed: the reference's seed_from_u64(0) substitution", () => {
     expect(outcome(() => new rand.SeededRng([0n, 0n, 0n, 0n]).nextU64())).toMatchSnapshot();
     expect(outcome(() => new rand.SeededRng(new Uint8Array(32)).nextU64())).toMatchSnapshot();
@@ -247,7 +247,7 @@ describe("golden: freeze additions", () => {
     expect(outcome(() => new rand.SeededRng(new Uint8Array(31)))).toMatchSnapshot();
   });
 
-  it("out-of-width and non-integer arguments: every one a RangeError", () => {
+  it("out-of-width and non-integer arguments: every one a RandError", () => {
     const r = (): rand.SeededRng => rand.SeededRng.forTesting();
     expect({
       "nextWithUpperBoundU32(2^32)": outcome(() => samplers.nextWithUpperBoundU32(r(), 4294967296)),
@@ -286,7 +286,7 @@ describe("golden: freeze additions", () => {
   });
 });
 
-describe("golden: usize samplers and the packed byte stream (1.0.0-beta.2)", () => {
+describe("golden: usize samplers and the packed byte stream", () => {
   for (const [name, seed] of SEEDS.slice(0, 2)) {
     it(`usize samplers (${name})`, () => {
       const rng = new rand.SeededRng(seed);

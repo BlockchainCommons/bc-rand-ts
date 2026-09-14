@@ -10,9 +10,10 @@ rand = "0.9"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
-# The reference's arithmetic must be *checked*: an i64 range whose length
-# exceeds i64::MAX overflows `upper_bound - lower_bound` in bc-rand, and the
-# panic is the outcome the port mirrors (RangeError). Unchecked, release
-# Rust would wrap and return a value from a wrong range.
+# The reference's arithmetic must be *checked*: a signed range whose length
+# exceeds its width's MAX overflows `upper_bound - lower_bound` in bc-rand
+# (i8, i16, i32 and i64 alike), and the panic is the outcome the port mirrors
+# (RandError RangeTooLong). Unchecked, Cargo's default release profile wraps
+# and returns a value from a wrong range (recorded as D1 in RUST_DIVERGENCES.md).
 [profile.release]
 overflow-checks = true

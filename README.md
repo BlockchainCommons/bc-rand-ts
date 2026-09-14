@@ -21,7 +21,14 @@ bun add @blockchaincommons/rand
 ## Usage Instructions
 
 ```typescript
-import { SeededRng, SecureRng, secureRng, randomBytes, randomBool } from "@blockchaincommons/rand";
+import {
+  RandError,
+  SeededRng,
+  SecureRng,
+  secureRng,
+  randomBytes,
+  randomBool,
+} from "@blockchaincommons/rand";
 import {
   nextWithUpperBoundU32,
   nextInClosedRangeI16,
@@ -42,16 +49,24 @@ const packed = new Uint8Array(32);
 rng.fillBytesPacked(packed);            // rand_core's `fill_bytes` layout (8 bytes per step)
 
 // Persist and fork a seeded generator.
-const state = rng.state;                // 32 little-endian bytes
-const resumed = new SeededRng(state);   // continues the same stream
+const state = rng.state;                     // 32 little-endian bytes
+const resumed = SeededRng.fromState(state);  // continues the same stream, exactly
 const fork = rng.clone();
 
-// Arguments are validated: anything outside the width throws a RangeError, e.g.
+// Every failure is a RandError with a code. Arguments are validated: anything
+// outside the width is InvalidArgument, e.g.
 // nextWithUpperBoundU32(rng, 2 ** 32) -> "upperBound must be an integer in [1, 4294967295], got 4294967296"
-// A signed range's length must fit its width, as in the reference:
+// A signed range's length must fit its width, as in the reference (RangeTooLong):
 // nextInClosedRangeI8(rng, -128, 127) -> "range length must be an integer in [0, 127], got 255"
+try {
+  nextInClosedRangeI16(rng, 10, 5);
+} catch (e) {
+  if (RandError.isRandError(e) && e.is("EmptyRange")) { /* start > end */ }
+}
 
-// Any object with nextU32/nextU64/fillBytes is a RandomNumberGenerator.
+// Any object with nextU32/nextU64/fillBytes is a RandomNumberGenerator; the
+// contract (a bigint in [0, 2^64 - 1] from nextU64, a u32 from nextU32) is
+// checked at every draw, and a violation is InvalidGenerator.
 const secure: SecureRng = secureRng();
 secure.nextU64();
 ```

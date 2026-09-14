@@ -28,9 +28,13 @@ export type Op =
 
 /** The generator a recipe draws from. Every form is explicit; nothing is defaulted. */
 export type Generator =
-  /** The package's seeded generator from four u64 words (decimal strings). */
-  | { kind: "seeded"; words: [string, string, string, string] }
-  /** The package's seeded generator from 32 bytes (hex, little-endian u64 words). */
+  /**
+   * The package's seeded generator from four u64 words (decimal strings). The
+   * `domain/seed/*` recipes carry other arities and words outside `u64`: the
+   * port rejects them, and the Rust harness classifies them as JS-only.
+   */
+  | { kind: "seeded"; words: string[] }
+  /** The package's seeded generator from 32 bytes (hex, little-endian u64 words); `domain/seed/*` carries other lengths. */
   | { kind: "seeded-bytes"; bytes: string }
   /** The recipes' own {@link CounterRng}, from its starting byte. */
   | { kind: "counter"; start: number };
@@ -130,6 +134,8 @@ export function materialize(api: VectorApi, r: Recipe): Outcome {
   try {
     switch (r.gen.kind) {
       case "seeded":
+        // Every arity is passed through as-is, so a domain recipe's shape
+        // reaches the constructor unchanged.
         rng = api.seeded(r.gen.words.map(BigInt) as [bigint, bigint, bigint, bigint]);
         break;
       case "seeded-bytes":

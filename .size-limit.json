@@ -1,11 +1,11 @@
 [
   {
-    "name": "ESM entry (import *), minified + gzipped",
+    "name": "ESM entry (import *), minified + brotlied",
     "path": "dist/index.mjs",
-    "limit": "2 kB"
+    "limit": "3 kB"
   },
   {
-    "name": "samplers subpath, minified + gzipped",
+    "name": "samplers subpath, minified + brotlied",
     "path": "dist/samplers.mjs",
     "limit": "2 kB"
   }
