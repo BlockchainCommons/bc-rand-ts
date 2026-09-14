@@ -5,8 +5,7 @@
  *
  * Runs size-limit in JSON mode with the limits removed, then writes each
  * entry's limit at the measured size plus 20% headroom, rounded up to the next
- * whole kB. Guessed budgets are worse than measured ones: a budget that is too
- * tight fails CI on day one, and one that is too loose never catches anything.
+ * whole kB.
  */
 import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";

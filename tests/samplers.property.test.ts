@@ -8,8 +8,8 @@ import * as samplers from "../src/samplers";
 import * as widening from "../src/widening";
 
 const u64 = fc.bigInt({ min: 0n, max: (1n << 64n) - 1n });
-// The all-zero seed is a fixed point of xoshiro256** (every output is 0), so a
-// rejection sampler never terminates on it; it is documented as invalid.
+// The constructor substitutes the all-zero seed (tests/rand.test.ts covers it);
+// excluding it here means every generated seed is used as given.
 const seedArb = fc.tuple(u64, u64, u64, u64).filter((s) => s.some((x) => x !== 0n));
 const rngFor = (s: [bigint, bigint, bigint, bigint]) => new rand.SeededRng(s);
 
@@ -94,12 +94,12 @@ describe("samplers stay in bounds", () => {
       {
         numRuns: 300,
         examples: [
-          [[0n, 12n, 0n, 0n], 65535, 0], // CI regression: raw draw 69120 overflows u16.
+          [[0n, 12n, 0n, 0n], 65535, 0], // Raw draw 69120 overflows u16.
           [[0n, 1n, 0n, 0n], 0, 65535], // Raw draw 5760 fits u16.
         ],
       },
     );
-    // i64 with a NON-NEGATIVE start is in range today.
+    // i64 closed ranges with a non-negative start stay in range.
     fc.assert(
       fc.property(
         seedArb,
@@ -116,7 +116,6 @@ describe("samplers stay in bounds", () => {
     );
   });
 
-  // Fixed: i64 ranges with a negative start are in range.
   it("i64 ranges with a negative start", () => {
     const v = samplers.nextInClosedRangeI64(rngFor([0n, 0n, 0n, 1n]), -1n, 0n);
     expect(v >= -1n && v <= 0n).toBe(true);

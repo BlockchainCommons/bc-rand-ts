@@ -2,23 +2,23 @@
 
 `@blockchaincommons/rand` is the redesigned successor to `@bcts/rand`.
 
-## TL;DR checklist
+## Summary
 
-- [ ] Replace the dependency and imports; samplers now come from
-      `@blockchaincommons/rand/samplers`.
-- [ ] `SeededRandomNumberGenerator` → `SeededRng`; `SecureRandomNumberGenerator` → `SecureRng`.
-- [ ] `makeFakeRandomNumberGenerator()` → `SeededRng.forTesting()`; `fakeRandomData(n)` → `testRandomBytes(n)`.
-- [ ] `rng.randomData(n)` / `rng.fillRandomData(b)` → `randomBytes(n, { rng })` / `rng.fillBytes(b)`.
-- [ ] `rngNextXxx(rng, …)` → `nextXxx(rng, …)` from `/samplers`; the three
-      un-suffixed deprecated aliases are gone.
-- [ ] Arguments outside the sampler's width now throw `RandError`
-      (`InvalidArgument`) instead of being masked; check any caller that relied
-      on wrapping.
-- [ ] Every error is a `RandError` with a `code` (§3); `instanceof RangeError`
-      no longer matches anything this package throws.
-- [ ] If you implement `RandomNumberGenerator`: it is three members plus two
-      optional ones (`nextU64Low32`, `fillBytesPacked`), and the contract is
-      checked at every draw.
+- Replace the dependency and imports; samplers now come from
+  `@blockchaincommons/rand/samplers`.
+- `SeededRandomNumberGenerator` → `SeededRng`; `SecureRandomNumberGenerator` → `SecureRng`.
+- `makeFakeRandomNumberGenerator()` → `SeededRng.forTesting()`; `fakeRandomData(n)` → `testRandomBytes(n)`.
+- `rng.randomData(n)` / `rng.fillRandomData(b)` → `randomBytes(n, { rng })` / `rng.fillBytes(b)`.
+- `rngNextXxx(rng, …)` → `nextXxx(rng, …)` from `/samplers`; the three
+  un-suffixed deprecated aliases are gone.
+- Arguments outside the sampler's width now throw `RandError`
+  (`InvalidArgument`) instead of being masked; check any caller that relied
+  on wrapping.
+- Every error is a `RandError` with a `code` (§3); `instanceof RangeError`
+  no longer matches anything this package throws.
+- If you implement `RandomNumberGenerator`: it is three members plus two
+  optional ones (`nextU64Low32`, `fillBytesPacked`), and the contract is
+  checked at every draw.
 
 ## 1. The generator interface
 

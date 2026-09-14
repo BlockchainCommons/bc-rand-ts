@@ -4,9 +4,8 @@
  *   bun scripts/generate-vectors.ts               # golden subset -> tests/vectors/vectors.json
  *   bun scripts/generate-vectors.ts --full [PATH]  # the whole corpus -> PATH (default: a temp file)
  *
- * The golden subset is materialised with the WORKING TREE and committed;
- * regenerating is a deliberate act, and the diff is the reviewable record of
- * any wire change. The full corpus (`allRecipes()`, of which the golden file
+ * The golden subset is materialised with the working tree and committed; its
+ * diff is the reviewable record of any wire change. The full corpus (`allRecipes()`, of which the golden file
  * is a stride) is never committed: CI materialises it and replays both files
  * against the Rust reference (tests/rust-validation), so a sampler shape the
  * golden stride skips still cannot regress unnoticed.

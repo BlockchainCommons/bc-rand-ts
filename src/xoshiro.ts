@@ -16,7 +16,15 @@ export class Xoshiro256StarStar {
   /** High 32 bits of the most recent output. */
   outHi = 0;
 
-  constructor(seed: readonly [bigint, bigint, bigint, bigint]) {
+  /**
+   * @param seed - four 64-bit words, or the eight `Uint32` lanes themselves
+   *   (adopted, not copied).
+   */
+  constructor(seed: readonly [bigint, bigint, bigint, bigint] | Uint32Array) {
+    if (seed instanceof Uint32Array) {
+      this.s = seed;
+      return;
+    }
     const s = new Uint32Array(8);
     for (let i = 0; i < 4; i++) {
       const w = seed[i] & 0xffffffffffffffffn;
@@ -24,6 +32,17 @@ export class Xoshiro256StarStar {
       s[i * 2 + 1] = Number(w >> 32n);
     }
     this.s = s;
+  }
+
+  /**
+   * The generator whose state is exactly `bytes` (see `loadBytes`), built
+   * without going through a `bigint` seed. The caller has checked the length.
+   */
+  static fromBytes(bytes: Uint8Array): Xoshiro256StarStar {
+    const view = new DataView(bytes.buffer, bytes.byteOffset, 32);
+    const s = new Uint32Array(8);
+    for (let i = 0; i < 8; i++) s[i] = view.getUint32(i * 4, true);
+    return new Xoshiro256StarStar(s);
   }
 
   /** Advance the generator once; the output lands in `outLo`/`outHi`. */

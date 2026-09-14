@@ -1,13 +1,12 @@
 /**
  * Dependency hygiene gate.
  *
- *   bun scripts/check-deps.ts          # no monorepo leftovers may survive
+ *   bun scripts/check-deps.ts          # no monorepo dependencies
  *   bun scripts/check-deps.ts --zero   # additionally: zero runtime deps
  *
- * The first check is universal: an extracted repository must never ship a
- * `@bcts/*` dependency or a `workspace:` protocol range, both of which are
- * unresolvable outside the bcts monorepo. The `--zero` form additionally
- * enforces the zero-runtime-dependency policy for the packages that hold it.
+ * Rejects any `@bcts/*` dependency or `workspace:` protocol range, neither of
+ * which resolves outside the bcts monorepo. `--zero` also enforces this
+ * package's zero-runtime-dependency policy.
  */
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";

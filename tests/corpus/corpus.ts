@@ -254,7 +254,7 @@ function* counterRecipes(): Generator<Recipe> {
         ? [
             [-7n, 7n],
             // The full signed range has a length above i64::MAX: out of the
-            // reference's domain (overflow), a RangeError here.
+            // reference's domain (overflow), a RandError here.
             [I_MIN[w as keyof typeof I_MIN], I_MAX[w as keyof typeof I_MAX]],
           ]
         : [
@@ -367,7 +367,7 @@ export function* allRecipes(): Generator<Recipe> {
   for (const gen of Object.values(categories)) yield* gen();
 }
 
-/** The hand-pinned golden subset: a stride over the corpus plus the raw set. */
+/** The golden subset: a stride over the corpus plus the raw set. */
 export function* goldenRecipes(): Generator<Recipe> {
   yield* rawRecipes();
   let i = 0;

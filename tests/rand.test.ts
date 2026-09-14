@@ -343,7 +343,7 @@ describe("SecureRng", () => {
     }
   });
 
-  test("an unstubbed 70,000-byte secure fill succeeds (QuotaExceededError under Node before the chunked fill)", () => {
+  test("an unstubbed 70,000-byte secure fill succeeds (above the Web Crypto per-call quota)", () => {
     const dest = new Uint8Array(70_000);
     fillRandomBytes(dest);
     expect(dest.subarray(65_536).some((b) => b !== 0)).toBe(true);

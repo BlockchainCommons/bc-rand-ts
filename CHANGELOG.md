@@ -2,10 +2,9 @@
 
 ## Unreleased
 
-Closes the divergences the 2026-09-14 audit found unrecorded, adds the
-package's error type and the raw-state restore, and restores
-`RUST_DIVERGENCES.md`. Seeded streams and every vector that existed before are
-byte-identical; the harness stays at `0 MISMATCH`.
+Adds the package's error type and the raw-state restore, and closes the
+divergences listed below. Seeded streams and every vector that existed before
+are byte-identical; the harness stays at `0 MISMATCH`.
 
 ### Fixed
 
@@ -40,8 +39,7 @@ byte-identical; the harness stays at `0 MISMATCH`.
   `{ nextU64: 5 }`, `{ nextU64Low32: 5 }`, a primitive), and `undefined` or
   `null` passed straight to a sampler; only `randomBytes`, `fillRandomBytes`
   and `randomBool` treat an `undefined`/`null` `rng` as the secure generator.
-  Nothing is masked. A conforming generator is unaffected (no measurable
-  slowdown: 3M draws of the U64 and U8 samplers over `SeededRng` within noise).
+  Nothing is masked. A conforming generator is unaffected.
 - **`dest` must be a `Uint8Array`.** `fillRandomBytes`, `SeededRng.fillBytes`,
   `SeededRng.fillBytesPacked` and `SecureRng.fillBytes` filled a `Uint16Array`
   or a plain array differently on each generator; they now throw `RandError`
@@ -52,9 +50,9 @@ byte-identical; the harness stays at `0 MISMATCH`.
 
 ### Added
 
-- `RandError`: the package's one error type, in the sibling shape (`name`,
-  `code`, `details`, `is(code)`, `RandError.isRandError`, static factories,
-  no public constructor). Codes: `InvalidArgument`, `EmptyRange`,
+- `RandError`: the package's one error type (`name`, `code`, `details`,
+  `is(code)`, `RandError.isRandError`, static factories, no public
+  constructor). Codes: `InvalidArgument`, `EmptyRange`,
   `RangeTooLong`, `ValueDoesNotFit`, `InvalidSeed`, `InvalidGenerator`,
   `CryptoUnavailable`. Where an error already existed its message is unchanged
   byte for byte. The factories are public so that a consumer calling a member
@@ -96,11 +94,10 @@ byte-identical; the harness stays at `0 MISMATCH`.
   js-only, 0 MISMATCH`. Both runs, plus an informational run on Cargo's
   unchecked release profile that documents D1 (`33 MISMATCH`, the signed
   range-length vectors), are the `rust-validation` CI job.
-- Size budget: the root entry's limit is 3 kB (2.29 kB measured, brotlied: the
+- Size budget: the root entry's limit is 3 kB (2.35 kB measured, brotlied: the
   error class and the contract checks); the samplers' stays 2 kB (1.66 kB).
-- `RUST_DIVERGENCES.md` restored: D1 (signed range length, release-profile
-  wrap), D2 (`usize` above `2^53 - 1`), the JS-only domain and the full stream
-  and width mapping.
+- `RUST_DIVERGENCES.md` records the two divergences: D1 (signed range length,
+  release-profile wrap) and D2 (`usize` above `2^53 - 1`).
 
 ## 1.0.0-beta.2
 

@@ -76,6 +76,14 @@ function splitMix64Of(seed: bigint): Seed {
   return words as unknown as Seed;
 }
 
+/**
+ * A core for the next `SeededRng` construction to adopt instead of reading
+ * its seed: how `fromState` builds a generator from raw state in one pass
+ * while keeping a single constructor (and a single instance shape).
+ * Consumed synchronously by that construction.
+ */
+let pendingCore: Xoshiro256StarStar | undefined;
+
 /** Four little-endian bytes of `value` at `offset`. */
 function writeU32(dest: Uint8Array, offset: number, value: number): void {
   dest[offset] = value & 0xff;
@@ -122,6 +130,11 @@ export class SeededRng implements RandomNumberGenerator {
    *   `ArrayBuffer`s and `DataView`s are rejected.
    */
   constructor(seed: Seed | Uint8Array) {
+    if (pendingCore !== undefined) {
+      this.core = pendingCore;
+      pendingCore = undefined;
+      return;
+    }
     const words = isBytes(seed) ? wordsFromBytes(seed) : wordsFromArray(seed);
     const zero = words[0] === 0n && words[1] === 0n && words[2] === 0n && words[3] === 0n;
     this.core = new Xoshiro256StarStar(zero ? splitMix64Of(0n) : words);
@@ -147,9 +160,8 @@ export class SeededRng implements RandomNumberGenerator {
     if (state.length !== 32) {
       throw RandError.invalidSeed("state byte length", "an integer in [32, 32]", state.length);
     }
-    const rng = new SeededRng(TEST_SEED);
-    rng.core.loadBytes(state);
-    return rng;
+    pendingCore = Xoshiro256StarStar.fromBytes(state);
+    return new SeededRng(TEST_SEED);
   }
 
   /**

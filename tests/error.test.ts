@@ -16,7 +16,7 @@ const caught = (f: () => unknown): RandError => {
 };
 
 describe("RandError", () => {
-  it("has the sibling shape: name, code, details, is(), and no public constructor", () => {
+  it("has name, code, details and is(), and comes from the static factories", () => {
     const e = RandError.valueDoesNotFit();
     expect(e).toBeInstanceOf(Error);
     expect(e).toBeInstanceOf(RandError);
@@ -37,7 +37,7 @@ describe("RandError", () => {
     expect(RandError.isRandError(null)).toBe(false);
   });
 
-  it("every code is reachable from the public surface, with today's messages", () => {
+  it("every code is reachable from the public surface, with its message", () => {
     const rng = (): SeededRng => SeededRng.forTesting();
     const reached: Record<RandErrorCode, RandError> = {
       InvalidArgument: caught(() => samplers.nextWithUpperBoundU8(rng(), 256)),

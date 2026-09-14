@@ -1,36 +1,5 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`golden: freeze additions > all-zero seed: the reference's seed_from_u64(0) substitution 1`] = `"11091344671253066420"`;
-
-exports[`golden: freeze additions > all-zero seed: the reference's seed_from_u64(0) substitution 2`] = `"11091344671253066420"`;
-
-exports[`golden: freeze additions > byte seed equals word seed: 32 little-endian bytes, four u64 words 1`] = `"throw:RandError:seed byte length must be an integer in [32, 32], got 31"`;
-
-exports[`golden: freeze additions > out-of-width and non-integer arguments: every one a RandError 1`] = `
-{
-  "SeededRng([2^64, 1, 1, 1])": "throw:RandError:seed[0] must be an integer in [0, 18446744073709551615], got 18446744073709551616",
-  "nextInClosedRangeI8(-129, 0)": "throw:RandError:start must be an integer in [-128, 127], got -129",
-  "nextInClosedRangeU32(0.5, 2)": "throw:RandError:start must be an integer in [0, 4294967295], got 0.5",
-  "nextInClosedRangeU64(0n, 2^64)": "throw:RandError:end must be an integer in [0, 18446744073709551615], got 18446744073709551616",
-  "nextInClosedRangeU8(0, 256)": "throw:RandError:end must be an integer in [0, 255], got 256",
-  "nextInRangeI16(-40000, 5)": "throw:RandError:start must be an integer in [-32768, 32767], got -40000",
-  "nextInRangeI32(0, 2^32)": "throw:RandError:end must be an integer in [-2147483648, 2147483647], got 4294967296",
-  "nextInRangeI64(-2^64, 0n)": "throw:RandError:start must be an integer in [-9223372036854775808, 9223372036854775807], got -18446744073709551616",
-  "nextInRangeI8(-200, 5)": "throw:RandError:start must be an integer in [-128, 127], got -200",
-  "nextInRangeU64(-1n, 5n)": "throw:RandError:start must be an integer in [0, 18446744073709551615], got -1",
-  "nextInRangeU8(0, 1e9)": "throw:RandError:end must be an integer in [0, 255], got 1000000000",
-  "nextInRangeU8(0, 256)": "throw:RandError:end must be an integer in [0, 255], got 256",
-  "nextWithUpperBoundU16(65536)": "throw:RandError:upperBound must be an integer in [1, 65535], got 65536",
-  "nextWithUpperBoundU32(-1)": "throw:RandError:upperBound must be an integer in [1, 4294967295], got -1",
-  "nextWithUpperBoundU32(1.5)": "throw:RandError:upperBound must be an integer in [1, 4294967295], got 1.5",
-  "nextWithUpperBoundU32(2^32)": "throw:RandError:upperBound must be an integer in [1, 4294967295], got 4294967296",
-  "nextWithUpperBoundU64(-1n)": "throw:RandError:upperBound must be an integer in [1, 18446744073709551615], got -1",
-  "nextWithUpperBoundU64(2^64)": "throw:RandError:upperBound must be an integer in [1, 18446744073709551615], got 18446744073709551616",
-  "nextWithUpperBoundU8(256)": "throw:RandError:upperBound must be an integer in [1, 255], got 256",
-  "randomBytes(1.5)": "throw:RandError:size must be an integer in [0, 9007199254740991], got 1.5",
-}
-`;
-
 exports[`golden: pure helpers > wideMul 1`] = `
 [
   [
@@ -1308,6 +1277,37 @@ exports[`golden: samplers (consumption pattern) > upper-bound samplers (test-see
 }
 `;
 
+exports[`golden: seed forms, argument domain and the fast path > all-zero seed: the reference's seed_from_u64(0) substitution 1`] = `"11091344671253066420"`;
+
+exports[`golden: seed forms, argument domain and the fast path > all-zero seed: the reference's seed_from_u64(0) substitution 2`] = `"11091344671253066420"`;
+
+exports[`golden: seed forms, argument domain and the fast path > byte seed equals word seed: 32 little-endian bytes, four u64 words 1`] = `"throw:RandError:seed byte length must be an integer in [32, 32], got 31"`;
+
+exports[`golden: seed forms, argument domain and the fast path > out-of-width and non-integer arguments: every one a RandError 1`] = `
+{
+  "SeededRng([2^64, 1, 1, 1])": "throw:RandError:seed[0] must be an integer in [0, 18446744073709551615], got 18446744073709551616",
+  "nextInClosedRangeI8(-129, 0)": "throw:RandError:start must be an integer in [-128, 127], got -129",
+  "nextInClosedRangeU32(0.5, 2)": "throw:RandError:start must be an integer in [0, 4294967295], got 0.5",
+  "nextInClosedRangeU64(0n, 2^64)": "throw:RandError:end must be an integer in [0, 18446744073709551615], got 18446744073709551616",
+  "nextInClosedRangeU8(0, 256)": "throw:RandError:end must be an integer in [0, 255], got 256",
+  "nextInRangeI16(-40000, 5)": "throw:RandError:start must be an integer in [-32768, 32767], got -40000",
+  "nextInRangeI32(0, 2^32)": "throw:RandError:end must be an integer in [-2147483648, 2147483647], got 4294967296",
+  "nextInRangeI64(-2^64, 0n)": "throw:RandError:start must be an integer in [-9223372036854775808, 9223372036854775807], got -18446744073709551616",
+  "nextInRangeI8(-200, 5)": "throw:RandError:start must be an integer in [-128, 127], got -200",
+  "nextInRangeU64(-1n, 5n)": "throw:RandError:start must be an integer in [0, 18446744073709551615], got -1",
+  "nextInRangeU8(0, 1e9)": "throw:RandError:end must be an integer in [0, 255], got 1000000000",
+  "nextInRangeU8(0, 256)": "throw:RandError:end must be an integer in [0, 255], got 256",
+  "nextWithUpperBoundU16(65536)": "throw:RandError:upperBound must be an integer in [1, 65535], got 65536",
+  "nextWithUpperBoundU32(-1)": "throw:RandError:upperBound must be an integer in [1, 4294967295], got -1",
+  "nextWithUpperBoundU32(1.5)": "throw:RandError:upperBound must be an integer in [1, 4294967295], got 1.5",
+  "nextWithUpperBoundU32(2^32)": "throw:RandError:upperBound must be an integer in [1, 4294967295], got 4294967296",
+  "nextWithUpperBoundU64(-1n)": "throw:RandError:upperBound must be an integer in [1, 18446744073709551615], got -1",
+  "nextWithUpperBoundU64(2^64)": "throw:RandError:upperBound must be an integer in [1, 18446744073709551615], got 18446744073709551616",
+  "nextWithUpperBoundU8(256)": "throw:RandError:upperBound must be an integer in [1, 255], got 256",
+  "randomBytes(1.5)": "throw:RandError:size must be an integer in [0, 9007199254740991], got 1.5",
+}
+`;
+
 exports[`golden: seeded generator > fillBytes then nextU64 (max) 1`] = `
 [
   "f7f77780809700",
@@ -1336,9 +1336,9 @@ exports[`golden: seeded generator > fillBytes then nextU64 (test-seed) 1`] = `
 ]
 `;
 
-exports[`golden: seeded generator > makeFakeRandomNumberGenerator / fakeRandomData 1`] = `"7eb559bbbf6cce2632cf9f194aeb50943de7e1cbad54dcfab27a42759f5e2fed"`;
+exports[`golden: seeded generator > forTesting / testRandomBytes 1`] = `"7eb559bbbf6cce2632cf9f194aeb50943de7e1cbad54dcfab27a42759f5e2fed"`;
 
-exports[`golden: seeded generator > makeFakeRandomNumberGenerator / fakeRandomData 2`] = `"1104683000648959614"`;
+exports[`golden: seeded generator > forTesting / testRandomBytes 2`] = `"1104683000648959614"`;
 
 exports[`golden: seeded generator > nextU32 ×64 (max) 1`] = `
 [
@@ -1892,15 +1892,15 @@ exports[`golden: seeded generator > nextU64 ×64 (test-seed) 1`] = `
 ]
 `;
 
-exports[`golden: seeded generator > randomData(256) (max) 1`] = `"f7f777808097001797e0389d9b1253c6cab709d01f9d02572a4cc06d91aa4db28054e00ecae7418280729e6969bb3c1fb3b38e75f4344c02f24e07df154d1b5bbffc64d345381341c7be6a6b1609a98683ebd4f300009b37e37d7d6884198518261b03f39e8c1eb5215f4fd700dca52b3ba5ef4b5a7471cf742146cd7be6f7f735a4f8cb927f12e9c3851e78c49c20dfa69ad755064ae152b69e2d138ec7ad537ab4e44cd4101b67ac7daf2c6c91f55a6839981ae790ebfc3aa3caf0288cb775a8fefa8cbd7b73073d31c5a1a6ded2a3126b29ecba46a35def90708f62c7473f8560c483f9e3b4e3175eea295bc0a2fbacb09c5b68e267da3dc9d46959a17dc7"`;
+exports[`golden: seeded generator > randomBytes(256) (max) 1`] = `"f7f777808097001797e0389d9b1253c6cab709d01f9d02572a4cc06d91aa4db28054e00ecae7418280729e6969bb3c1fb3b38e75f4344c02f24e07df154d1b5bbffc64d345381341c7be6a6b1609a98683ebd4f300009b37e37d7d6884198518261b03f39e8c1eb5215f4fd700dca52b3ba5ef4b5a7471cf742146cd7be6f7f735a4f8cb927f12e9c3851e78c49c20dfa69ad755064ae152b69e2d138ec7ad537ab4e44cd4101b67ac7daf2c6c91f55a6839981ae790ebfc3aa3caf0288cb775a8fefa8cbd7b73073d31c5a1a6ded2a3126b29ecba46a35def90708f62c7473f8560c483f9e3b4e3175eea295bc0a2fbacb09c5b68e267da3dc9d46959a17dc7"`;
 
-exports[`golden: seeded generator > randomData(256) (mixed) 1`] = `"6577c5b77d6d2b6713df12a78b4a7ec593d8c4b85817507703b42b7eae0d5309ddb57faf5c31a03866f0e008b6faa6423c261ce1f9f26a244afeef2a5210f9200a1227b06a5bbfa0e44b32b00a8728e49c4f4acee1ef6cfb843b538307dfd400ef7282ba140c229e0ac20da641c57400a8587930d6178eaf93ffacbd6b5bbba585687e3ff6f4ad02b92d62f581ce7375e1fe073cb2dd9f3d852321ab6c7207795eafc21560e0f7b869517f5d2cfad4648e3baa596377864e779fc233e8529d10ffb4be3eeda4446b503bff3e25b2c5da707f816af04596a3d9027de18948853ec339c5677979965d2b97cf063f3327c4f73d1d06a88a1e0487511d2eb8fbc6f5"`;
+exports[`golden: seeded generator > randomBytes(256) (mixed) 1`] = `"6577c5b77d6d2b6713df12a78b4a7ec593d8c4b85817507703b42b7eae0d5309ddb57faf5c31a03866f0e008b6faa6423c261ce1f9f26a244afeef2a5210f9200a1227b06a5bbfa0e44b32b00a8728e49c4f4acee1ef6cfb843b538307dfd400ef7282ba140c229e0ac20da641c57400a8587930d6178eaf93ffacbd6b5bbba585687e3ff6f4ad02b92d62f581ce7375e1fe073cb2dd9f3d852321ab6c7207795eafc21560e0f7b869517f5d2cfad4648e3baa596377864e779fc233e8529d10ffb4be3eeda4446b503bff3e25b2c5da707f816af04596a3d9027de18948853ec339c5677979965d2b97cf063f3327c4f73d1d06a88a1e0487511d2eb8fbc6f5"`;
 
-exports[`golden: seeded generator > randomData(256) (ones) 1`] = `"808000800020a0a0a088bc0eefdbce00b008a5fd123e938b9fe9a76f2ae4aeb69856d2aa9816d7587ef8090ab35afde17a6651603d7633a7ef8e35561c128ecc39fada42a6ab4df7f3fcf706379b8815d5a82e526351ed7baf28668706ba96c57781907f1f94c35caf46cf43f607c7401d9dfa66dc432c8b4ceb3827025bb03b387f45fc3d3e9edb4d9bce7ddbe07d262814781a9a0ac14c72b82e2129cae2a3d1dc7115e1a794f6db47d3fb72c47fc93b98afa415d2e7423aa90ffe95cbc646e8fb375488bb1eb2ffdaeabda5b52ee578b73beeaad2381fa2cb00090cd766743bc541c9cd90b653ca2cccfefe6a315a05d9902d2e0c6068b5c89cd08241dc62"`;
+exports[`golden: seeded generator > randomBytes(256) (ones) 1`] = `"808000800020a0a0a088bc0eefdbce00b008a5fd123e938b9fe9a76f2ae4aeb69856d2aa9816d7587ef8090ab35afde17a6651603d7633a7ef8e35561c128ecc39fada42a6ab4df7f3fcf706379b8815d5a82e526351ed7baf28668706ba96c57781907f1f94c35caf46cf43f607c7401d9dfa66dc432c8b4ceb3827025bb03b387f45fc3d3e9edb4d9bce7ddbe07d262814781a9a0ac14c72b82e2129cae2a3d1dc7115e1a794f6db47d3fb72c47fc93b98afa415d2e7423aa90ffe95cbc646e8fb375488bb1eb2ffdaeabda5b52ee578b73beeaad2381fa2cb00090cd766743bc541c9cd90b653ca2cccfefe6a315a05d9902d2e0c6068b5c89cd08241dc62"`;
 
-exports[`golden: seeded generator > randomData(256) (test-seed) 1`] = `"7eb559bbbf6cce2632cf9f194aeb50943de7e1cbad54dcfab27a42759f5e2fed518684c556472008a67932f7c682125b50cb72e8216f6906358fdaf28d3545532daee0c5bb5023f50cd8e71ec14901ac746c576c481b893be6656b80622b3a564e59b4e2c5282ff526a4d4fb0482cb85248cee509b1bcbe8f4177e516740f51bbbc88f5e0ee245bbef1501db27c28a48c9bd0b768f2948ff0b2071c6fc44300fb2c49e750e64cdc6071ffdee1998c1eded72368f8820d8dfca4a1c9bd813782a218e90caa023ab43224f94fbfa25acdc17c7ccd79cb25f25128c207a63a9bfb73673b12e831bdd1b0a222a803121ac5c13ca47121d4dd999dcc23ee2067ce633"`;
+exports[`golden: seeded generator > randomBytes(256) (test-seed) 1`] = `"7eb559bbbf6cce2632cf9f194aeb50943de7e1cbad54dcfab27a42759f5e2fed518684c556472008a67932f7c682125b50cb72e8216f6906358fdaf28d3545532daee0c5bb5023f50cd8e71ec14901ac746c576c481b893be6656b80622b3a564e59b4e2c5282ff526a4d4fb0482cb85248cee509b1bcbe8f4177e516740f51bbbc88f5e0ee245bbef1501db27c28a48c9bd0b768f2948ff0b2071c6fc44300fb2c49e750e64cdc6071ffdee1998c1eded72368f8820d8dfca4a1c9bd813782a218e90caa023ab43224f94fbfa25acdc17c7ccd79cb25f25128c207a63a9bfb73673b12e831bdd1b0a222a803121ac5c13ca47121d4dd999dcc23ee2067ce633"`;
 
-exports[`golden: usize samplers and the packed byte stream (1.0.0-beta.2) > fillBytesPacked (ones) 1`] = `
+exports[`golden: usize samplers and the packed byte stream > fillBytesPacked (ones) 1`] = `
 [
   "801600000000000080160000000000000000002d000000008016002d00000000",
   "00000000005ad0025a5ad0",
@@ -1915,7 +1915,7 @@ exports[`golden: usize samplers and the packed byte stream (1.0.0-beta.2) > fill
 ]
 `;
 
-exports[`golden: usize samplers and the packed byte stream (1.0.0-beta.2) > fillBytesPacked (test-seed) 1`] = `
+exports[`golden: usize samplers and the packed byte stream > fillBytesPacked (test-seed) 1`] = `
 [
   "7e061813569f540fb501367178373e8859424ceddfc39407bb066f2953f140dc",
   "bf404b29f712870b499a01",
@@ -1930,7 +1930,7 @@ exports[`golden: usize samplers and the packed byte stream (1.0.0-beta.2) > fill
 ]
 `;
 
-exports[`golden: usize samplers and the packed byte stream (1.0.0-beta.2) > usize samplers (ones) 1`] = `
+exports[`golden: usize samplers and the packed byte stream > usize samplers (ones) 1`] = `
 {
   "bound": [
     [
@@ -2014,7 +2014,7 @@ exports[`golden: usize samplers and the packed byte stream (1.0.0-beta.2) > usiz
 }
 `;
 
-exports[`golden: usize samplers and the packed byte stream (1.0.0-beta.2) > usize samplers (test-seed) 1`] = `
+exports[`golden: usize samplers and the packed byte stream > usize samplers (test-seed) 1`] = `
 {
   "bound": [
     [

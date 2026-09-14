@@ -65,6 +65,4 @@ vectors MISMATCH. That run is the executed record of D1.
 
 The `rust-validation` job in `.github/workflows/ci.yml` materialises the full
 corpus with `bun scripts/generate-vectors.ts --full`, then runs the harness on
-`vectors.json` and on the corpus with `--locked`; a MISMATCH fails the job. A
-deliberately broken sampler fails both the golden suite and the corpus run
-(verified: an off-by-one in `nextInRangeU8` gives `38 MISMATCH`).
+`vectors.json` and on the corpus with `--locked`; a MISMATCH fails the job.
